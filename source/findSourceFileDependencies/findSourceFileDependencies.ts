@@ -76,9 +76,17 @@ function findModuleSpecifierSourceFile(
 }
 
 function getExtensions(compilerOptions: CompilerOptions): string[] {
-  const hasTsx = !!compilerOptions.jsx
+  const extensions = ['.js', '.ts']
 
-  return hasTsx ? ['.js', '.jsx', '.ts', '.tsx'] : ['.js', '.ts']
+  if (!!compilerOptions.jsx) {
+    extensions.push('.tsx', '.jsx')
+  }
+
+  if (!!compilerOptions.resolveJsonModule) {
+    extensions.push('.json')
+  }
+
+  return extensions
 }
 
 function findSpecifierName(sourceFile: SourceFile, position: [number, number]): string {
