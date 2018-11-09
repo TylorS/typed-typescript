@@ -1,0 +1,10 @@
+{
+  "*.ts": [
+    "tslint --fix",
+    "git add"
+  ],
+  "*.tsx": [
+    "tslint --fix",
+    "git add"
+  ]
+}

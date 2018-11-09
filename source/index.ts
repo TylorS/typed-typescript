@@ -1,0 +1,6 @@
+export * from './createLanguageService'
+export * from './diagnosticsToString'
+export * from './findSourceFileDependencies'
+export * from './findTsConfig'
+export * from './type-checking'
+export * from './types'

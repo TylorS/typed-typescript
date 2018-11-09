@@ -1,0 +1,45 @@
+{
+  "name": "@typed/typescript",
+  "version": "0.0.0",
+  "description": "Tools for working with the Typescript AST",
+  "main": "lib/index.js",
+  "module": "index.js",
+  "scripts": {
+    "test": "typed-test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TylorS/typed-typescript.git"
+  },
+  "keywords": [
+    "Typed",
+    "TypeScript",
+    "AST"
+  ],
+  "author": "Tylor Steinberger <tlsteinberger167@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/TylorS/typed-typescript/issues"
+  },
+  "homepage": "https://github.com/TylorS/typed-typescript#readme",
+  "devDependencies": {
+    "@typed/test": "^9.0.0",
+    "@types/glob": "^7.1.1",
+    "@types/resolve": "0.0.8",
+    "husky": "^1.1.3",
+    "lint-staged": "^8.0.4",
+    "prettier": "^1.15.1",
+    "ts-node": "^7.0.1",
+    "tslint": "^5.11.0",
+    "tslint-config-prettier": "^1.15.0",
+    "tslint-plugin-prettier": "^2.0.1",
+    "typescript": "^3.1.6"
+  },
+  "peerDependencies": {
+    "typescript": "^3.1.6"
+  },
+  "dependencies": {
+    "glob": "^7.1.3",
+    "resolve": "^1.8.1"
+  }
+}
