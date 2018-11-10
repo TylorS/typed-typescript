@@ -27,7 +27,7 @@ export interface Register {
   compile(code: string, fileName: string): string
 }
 
-export function transpileNode(cwd: string, compilerOptions: CompilerOptions): void {
+export function transpileNode(cwd: string, compilerOptions: CompilerOptions): () => void {
   compilerOptions = { ...cleanCompilerOptions(compilerOptions), ...DEFAULT_COMPILER_OPTIONS }
 
   const cacheDirectory = directory()
@@ -71,6 +71,14 @@ export function transpileNode(cwd: string, compilerOptions: CompilerOptions): vo
   extensions.forEach(extension => {
     registerExtension(extension, register, originalJsHandler)
   })
+
+  return () => {
+    extensions.forEach(extension => {
+      delete require.extensions[extension]
+    })
+
+    require.extensions['.js'] = originalJsHandler
+  }
 }
 
 function readThrough(
