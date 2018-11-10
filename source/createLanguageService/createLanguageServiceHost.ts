@@ -6,8 +6,8 @@ import {
   ScriptSnapshot,
   sys,
 } from 'typescript'
+import { makeAbsolute } from '../common/makeAbsolute'
 import { findFilePaths } from './findFilePaths'
-import { makeAbsolute } from './makeAbsolute'
 
 export interface LanguageServiceHostOptions {
   cwd: string
