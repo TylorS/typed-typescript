@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
-import { createProgram } from 'typescript'
-import { makeAbsolute } from '../common/makeAbsolute'
-import { findTsConfig } from '../findTsConfig'
-import { typeCheckFiles } from './typeCheckFiles'
+// tslint:disable:no-var-requires
+const { createProgram } = require('typescript')
+const { makeAbsolute } = require('../common/makeAbsolute')
+const { findTsConfig } = require('../findTsConfig')
+const { typeCheckFiles } = require('./typeCheckFiles')
+// tslint:enable:no-var-requires
 
 const cwd = process.argv[2]
 const files = process.argv.slice(3).map(x => makeAbsolute(cwd, x))

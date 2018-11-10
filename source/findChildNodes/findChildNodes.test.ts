@@ -4,10 +4,12 @@ import { isFunctionDeclaration, isFunctionExpression } from 'typescript'
 import { setupFixtureTestEnvironment } from '../../test-helpers/setupFixtureTestEnvironment'
 import { findChildNodes } from './findChildNodes'
 
+const testHelpers = join(__dirname, '../../test-helpers')
+
 export const test = describe(`findChildNodes`, [
   given(`a Predicate and SourceFiles`, [
     it(`returns a NodeTree of nodes matching predicate`, ({ equal }) => {
-      const fixtureFilePath = join(__dirname, 'fixtures/functions.ts')
+      const fixtureFilePath = join(testHelpers, 'fixtures/functions.ts')
       const { sourceFile } = setupFixtureTestEnvironment(__dirname, fixtureFilePath)
       const nodes = findChildNodes(x => isFunctionDeclaration(x) || isFunctionExpression(x), [
         sourceFile,
