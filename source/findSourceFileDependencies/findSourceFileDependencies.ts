@@ -5,40 +5,56 @@ import {
   Expression,
   isExportDeclaration,
   isImportDeclaration,
+  isImportEqualsDeclaration,
   Node,
   Path,
   Program,
   SourceFile,
 } from 'typescript'
+import { getPosition } from '../getPosition'
+import { DependencyTree } from '../types'
 
-export interface Dependencies {
-  filePath: string
-  dependencies: Dependencies[]
-}
+const OPENING_STRING_LITERAL = /^('|")/
+const CLOSING_STRING_LITERAL = /('|")$/
+const OPENING_REQUIRE_CALL_EXPRESSION = /(^require\()/
+const CLOSING_CALL_EXPRESSION = /\)$/
 
-export function findSourceFileDependencies(sourceFile: SourceFile, program: Program): Dependencies {
-  const pathsSeen: string[] = []
-  const dependencies: Dependencies[] = []
+// Only supports top-level imports
+// TODO: support dynamic require()/import()
+// Consideration: Is supporting dynamic imports worth performance penalty?
+export function findSourceFileDependencies(
+  sourceFile: SourceFile,
+  program: Program,
+): DependencyTree {
+  const extensions = getExtensions(program.getCompilerOptions())
+  const dependencies: DependencyTree[] = []
 
   function addSourceFile(file: SourceFile) {
-    if (pathsSeen.includes(file.fileName)) {
-      return
-    }
-
-    pathsSeen.push(file.fileName)
-
-    const dependency: Dependencies = {
-      filePath: file.fileName,
-      dependencies: findSourceFileDependencies(file, program).dependencies,
-    }
-
-    dependencies.push(dependency)
+    dependencies.push(findSourceFileDependencies(file, program))
   }
 
   function checkNode(node: Node) {
     if (isImportDeclaration(node) || (isExportDeclaration(node) && node.moduleSpecifier)) {
+      const moduleSpecifier = node.moduleSpecifier as Expression
+
       addSourceFile(
-        findModuleSpecifierSourceFile(sourceFile, program, node.moduleSpecifier as Expression),
+        findSourceFile(
+          sourceFile,
+          program,
+          extensions,
+          findSpecifierName(sourceFile, getPosition(moduleSpecifier)),
+        ),
+      )
+    }
+
+    if (isImportEqualsDeclaration(node)) {
+      addSourceFile(
+        findSourceFile(
+          sourceFile,
+          program,
+          extensions,
+          cleanModuleReferenceName(node.moduleReference.getText(sourceFile)),
+        ),
       )
     }
   }
@@ -54,18 +70,16 @@ export function findSourceFileDependencies(sourceFile: SourceFile, program: Prog
   }
 }
 
-function findModuleSpecifierSourceFile(
+function findSourceFile(
   sourceFile: SourceFile,
   program: Program,
-  moduleSpecifier: Expression,
-): SourceFile {
-  const filePath = resolveSync(
-    findSpecifierName(sourceFile, [moduleSpecifier.pos, moduleSpecifier.end]),
-    {
-      basedir: dirname(sourceFile.fileName),
-      extensions: getExtensions(program.getCompilerOptions()),
-    },
-  )
+  extensions: string[],
+  identifier: string,
+) {
+  const filePath = resolveSync(identifier, {
+    basedir: dirname(sourceFile.fileName),
+    extensions,
+  })
   const file = program.getSourceFile(filePath as Path)
 
   if (!file) {
@@ -90,10 +104,18 @@ function getExtensions(compilerOptions: CompilerOptions): string[] {
 }
 
 function findSpecifierName(sourceFile: SourceFile, position: [number, number]): string {
-  return sourceFile
-    .getFullText()
-    .slice(position[0], position[1])
+  return cleanIdentifierName(sourceFile.getFullText().slice(position[0], position[1]))
+}
+
+function cleanModuleReferenceName(name: string): string {
+  return cleanIdentifierName(
+    name.replace(OPENING_REQUIRE_CALL_EXPRESSION, '').replace(CLOSING_CALL_EXPRESSION, ''),
+  )
+}
+
+function cleanIdentifierName(name: string): string {
+  return name
     .trim()
-    .replace(/^('|")/, '')
-    .replace(/('|")$/, '')
+    .replace(OPENING_STRING_LITERAL, '')
+    .replace(CLOSING_STRING_LITERAL, '')
 }

@@ -4,8 +4,7 @@
 
 ## Node/CLI Tools 
 
-- Find tsconfig.json
-- Parse tsconfig.json 
+- Find and parse tsconfig.json
 - Compilation
 - Configure your compilerOptions.paths
 - TypeChecking in another process

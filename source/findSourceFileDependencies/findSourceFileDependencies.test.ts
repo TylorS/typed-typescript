@@ -1,8 +1,10 @@
 import { describe, given, it } from '@typed/test'
 import { join } from 'path'
 import { createProgram, Path, SourceFile } from 'typescript'
+import { setupFixtureTestEnvironment } from '../../test-helpers/setupFixtureTestEnvironment'
 import { findTsConfig } from '../findTsConfig'
-import { Dependencies, findSourceFileDependencies } from './findSourceFileDependencies'
+import { DependencyTree } from '../types'
+import { findSourceFileDependencies } from './findSourceFileDependencies'
 
 export const findSourceFileDependenciesTest = describe(`findSourceFileDependencies`, [
   given(`a SourceFile`, [
@@ -15,7 +17,7 @@ export const findSourceFileDependenciesTest = describe(`findSourceFileDependenci
       })
       const sourceFile = program.getSourceFile(fixtureFilePath as Path) as SourceFile
       const dependencies = findSourceFileDependencies(sourceFile, program)
-      const expected: Dependencies = {
+      const expected: DependencyTree = {
         filePath: fixtureFilePath,
         dependencies: [
           {
@@ -34,6 +36,26 @@ export const findSourceFileDependenciesTest = describe(`findSourceFileDependenci
                 dependencies: [],
               },
             ],
+          },
+        ],
+      }
+
+      equal(expected, dependencies)
+    }),
+  ]),
+
+  given(`A SourceFile with import Foo = require('foo')`, [
+    it(`returns it's dependencies`, ({ equal }) => {
+      const fixtureFilePath = join(__dirname, 'fixtures/require.ts')
+      const { sourceFile, program } = setupFixtureTestEnvironment(__dirname, fixtureFilePath)
+      const dependencies = findSourceFileDependencies(sourceFile, program)
+
+      const expected: DependencyTree = {
+        filePath: fixtureFilePath,
+        dependencies: [
+          {
+            filePath: join(__dirname, 'fixtures/foo.cjs.ts'),
+            dependencies: [],
           },
         ],
       }

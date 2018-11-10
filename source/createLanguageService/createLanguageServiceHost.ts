@@ -29,8 +29,9 @@ export function createLanguageServiceHost(options: LanguageServiceHostOptions) {
     getScriptSnapshot: fileName => {
       const pathname = makeAbsolute(cwd, fileName)
       const contents = sys.readFile(pathname)
+      const snapshot = contents ? ScriptSnapshot.fromString(contents) : undefined
 
-      return contents ? ScriptSnapshot.fromString(contents) : undefined
+      return snapshot
     },
     getCurrentDirectory: () => cwd,
     getCompilationSettings: () => compilerOptions,

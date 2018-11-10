@@ -1,18 +1,13 @@
+import { curry2 } from '@typed/functions'
 import { forEachChild, Node } from 'typescript'
+import { NodeTree } from '../types'
 
-export interface NodeTree {
-  node: Node
-  position: [number, number]
-  children: NodeTree[]
-}
+export const findChildNodes: {
+  (predicate: (node: Node) => boolean, nodes: Node[]): NodeTree[]
+  (predicate: (node: Node) => boolean): (nodes: Node[]) => NodeTree[]
+} = curry2(__findChildNodes)
 
-export const RETURN_EARLY_ERROR = new Error('Returned Early')
-
-export const returnEarly = (): never => {
-  throw RETURN_EARLY_ERROR
-}
-
-export function findNodes(predicate: (node: Node) => boolean, nodes: Node[]): NodeTree[] {
+function __findChildNodes(predicate: (node: Node) => boolean, nodes: Node[]): NodeTree[] {
   return organizeNodesIntoTree(findAllNodes(predicate, nodes))
 }
 
@@ -27,19 +22,7 @@ function findAllNodes(predicate: (node: Node) => boolean, nodes: Node[]): Node[]
     forEachChild(node, visitNode)
   }
 
-  try {
-    nodes.forEach(visitNode)
-  } catch (error) {
-    // An API for short circuiting the traversal
-    // Scenario: You've found the one node you're looking for and
-    // don't want to traverse every other SourceFile in your project
-    // wastefully.
-    if (error === RETURN_EARLY_ERROR) {
-      return nodeTrees
-    }
-
-    throw error
-  }
+  nodes.forEach(visitNode)
 
   return nodeTrees
 }
@@ -49,7 +32,8 @@ function organizeNodesIntoTree(nodes: Node[]): NodeTree[] {
     return []
   }
 
-  let sortedNodes = nodes.slice().sort(byStart)
+  // Yes this is mutation but it was just made in the previous function call in findChildNodes
+  let sortedNodes = nodes.sort(byStart)
   let node = sortedNodes.shift()
   const nodeTree: NodeTree[] = []
 

@@ -31,7 +31,7 @@ export function createLanguageService(options: LanguageServiceOptions): Language
     fileVersions[filePath] = { version: 0 }
   })
 
-  const ls = createLs(languageServiceHost, void 0, syntaxOnly)
+  const ls = createLs(languageServiceHost, undefined, syntaxOnly)
 
   return ls
 }
