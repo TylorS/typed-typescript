@@ -1,4 +1,8 @@
-# @typed/typescript
+# @typed/typescript 
+
+Still a work in progress - readme not exhaustive or really a commitment.
+Main goals are to provide high-level tools for building tooling on-top of TypeScript
+like [`@typed/test`](https://github.com/TylorS/typed-test) and other projects I have in mind =)
 
 > A collection of utilities for working with typescript source code.
 
