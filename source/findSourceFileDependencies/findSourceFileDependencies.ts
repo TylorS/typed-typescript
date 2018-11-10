@@ -1,7 +1,6 @@
 import { dirname } from 'path'
 import { sync as resolveSync } from 'resolve'
 import {
-  CompilerOptions,
   Expression,
   isExportDeclaration,
   isImportDeclaration,
@@ -11,6 +10,7 @@ import {
   Program,
   SourceFile,
 } from 'typescript'
+import { getFileExtensions } from '../getFileExtensions'
 import { getPosition } from '../getPosition'
 import { DependencyTree } from '../types'
 
@@ -26,7 +26,7 @@ export function findSourceFileDependencies(
   sourceFile: SourceFile,
   program: Program,
 ): DependencyTree {
-  const extensions = getExtensions(program.getCompilerOptions())
+  const extensions = getFileExtensions(program.getCompilerOptions())
   const dependencies: DependencyTree[] = []
 
   function addSourceFile(file: SourceFile) {
@@ -87,20 +87,6 @@ function findSourceFile(
   }
 
   return file
-}
-
-function getExtensions(compilerOptions: CompilerOptions): string[] {
-  const extensions = ['.js', '.ts']
-
-  if (!!compilerOptions.jsx) {
-    extensions.push('.tsx', '.jsx')
-  }
-
-  if (!!compilerOptions.resolveJsonModule) {
-    extensions.push('.json')
-  }
-
-  return extensions
 }
 
 function findSpecifierName(sourceFile: SourceFile, position: [number, number]): string {
