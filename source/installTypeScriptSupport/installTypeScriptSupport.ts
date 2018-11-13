@@ -1,5 +1,5 @@
+import { register } from 'tsconfig-paths'
 import { CompilerOptions } from 'typescript'
-import { registerTsPaths } from './registerTsPaths'
 import { transpileNode } from './transpileNode'
 
 export type TypeScriptSupportOptions = {
@@ -18,7 +18,7 @@ export function installTypeScriptSupport({
 
   const tsPathDispose =
     baseUrl && paths
-      ? registerTsPaths({
+      ? register({
           baseUrl,
           paths,
         })
