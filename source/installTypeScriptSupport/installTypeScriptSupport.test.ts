@@ -5,9 +5,12 @@ import { installTypeScriptSupport } from './installTypeScriptSupport'
 
 export const test = describe(`installTypeScriptSupport`, [
   given(`cwd and compilerOptions `, [
-    it(`installs TypeScript support`, ({ equal }) => {
+    it(`installs TypeScript support`, ({ equal, throws }) => {
       const directory = join(__dirname, '../../test-helpers/fixtures/paths')
       const file = join(directory, 'foobar.ts')
+
+      throws(() => require(file))
+
       const { program } = setupFixtureTestEnvironment(directory, file)
       const cleanup = installTypeScriptSupport({
         cwd: directory,
