@@ -1,3 +1,4 @@
+import { Maybe } from '@typed/maybe'
 import { CompilerOptions, Node } from 'typescript'
 
 export interface TsConfig {
@@ -19,4 +20,10 @@ export interface NodeTree {
 export interface DependencyTree {
   filePath: string
   dependencies: DependencyTree[]
+}
+
+export interface ExportMetadata {
+  exportNames: string[]
+  node: Node
+  exportNode: Maybe<Node>
 }
