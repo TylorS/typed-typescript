@@ -27,9 +27,7 @@ export function findExportsFromSourceFile(
   sourceFile: SourceFile,
   typeChecker: TypeChecker,
 ): ExportMetadata[] {
-  const metadata = findAllExportsFromSourceFile(sourceFile, typeChecker)
-
-  return deduplicateMetadata(metadata)
+  return deduplicateMetadata(findAllExportsFromSourceFile(sourceFile, typeChecker))
 }
 
 function deduplicateMetadata(metadata: ExportMetadata[]) {
