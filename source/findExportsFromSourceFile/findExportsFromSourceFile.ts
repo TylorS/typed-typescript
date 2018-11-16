@@ -27,6 +27,31 @@ export function findExportsFromSourceFile(
   sourceFile: SourceFile,
   typeChecker: TypeChecker,
 ): ExportMetadata[] {
+  const metadata = findAllExportsFromSourceFile(sourceFile, typeChecker)
+
+  return deduplicateMetadata(metadata)
+}
+
+function deduplicateMetadata(metadata: ExportMetadata[]) {
+  const deduplicated: ExportMetadata[] = []
+
+  for (const exportMetadata of metadata) {
+    const index = deduplicated.findIndex(x => x.node === exportMetadata.node)
+
+    if (index === -1) {
+      deduplicated.push(exportMetadata)
+    } else {
+      deduplicated[index].exportNames.push(...exportMetadata.exportNames)
+    }
+  }
+
+  return deduplicated
+}
+
+function findAllExportsFromSourceFile(
+  sourceFile: SourceFile,
+  typeChecker: TypeChecker,
+): ExportMetadata[] {
   const getSymbolOfNode = (node: Node) => chain(getSymbolFromType, getType(typeChecker, node))
   const exportMetadata: ExportMetadata[] = []
 
