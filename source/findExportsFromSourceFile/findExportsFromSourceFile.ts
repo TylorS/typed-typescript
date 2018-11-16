@@ -139,9 +139,7 @@ function findAllExportsFromSourceFile(
 
         findExportMetadata(
           originalNode,
-          (exportName ? (exportName.node as Identifier) : (localName.node as Identifier)).getText(
-            sourceFile,
-          ),
+          ((exportName ? exportName.node : localName.node) as Identifier).getText(sourceFile),
         )
       }
 
