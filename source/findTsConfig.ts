@@ -7,13 +7,16 @@ import {
 import { diagnosticsToString } from './diagnosticsToString'
 import { TsConfig } from './types'
 
-const TS_CONFIG = 'tsconfig.json'
+const TS_CONFIG =
+  typeof process !== 'undefined'
+    ? process.env.TYPED_TEST_TS_CONFIG || 'tsconfig.json'
+    : 'tsconfig.json'
 
-export function findTsConfig(directory: string): TsConfig {
-  const configPath = findConfigFile(directory, sys.fileExists, TS_CONFIG)
+export function findTsConfig(directory: string, configFileName: string = TS_CONFIG): TsConfig {
+  const configPath = findConfigFile(directory, sys.fileExists, configFileName)
 
   if (!configPath) {
-    throw new Error(`Unable to find ${TS_CONFIG} from ${directory}`)
+    throw new Error(`Unable to find ${configFileName} from ${directory}`)
   }
 
   const configContents = sys.readFile(configPath) as string
