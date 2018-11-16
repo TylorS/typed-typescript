@@ -7,18 +7,16 @@ import { findExportsFromSourceFile } from './findExportsFromSourceFile'
 const testFixtures = join(__dirname, '../../test-helpers/fixtures')
 
 /* TODO:
-  Finish Identifier Test
-  Add export { foo as bar } test
-  Add default export identifier test
   Add re-exports test
+  Add export =
+  Add export = identifier
 */
 export const test = describe(`findExportsFromSourceFile`, [
   given(`a SourceFile with exported arrow function`, [
     it(`returns all exports`, ({ equal }) => {
       const filePath = join(testFixtures, 'exports/arrow-function.ts')
-      const { sourceFile } = setupFixtureTestEnvironment(__dirname, filePath)
-
-      const [actual] = findExportsFromSourceFile(sourceFile)
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
 
       equal(['foo'], actual.exportNames)
       equal(SyntaxKind.VariableStatement, actual.node.kind)
@@ -28,9 +26,8 @@ export const test = describe(`findExportsFromSourceFile`, [
   given(`a SourceFile with exported class`, [
     it(`returns all exports`, ({ equal }) => {
       const filePath = join(testFixtures, 'exports/class.ts')
-      const { sourceFile } = setupFixtureTestEnvironment(__dirname, filePath)
-
-      const [actual] = findExportsFromSourceFile(sourceFile)
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
 
       equal(['Foo'], actual.exportNames)
       equal(SyntaxKind.ClassDeclaration, actual.node.kind)
@@ -40,9 +37,8 @@ export const test = describe(`findExportsFromSourceFile`, [
   given(`a SourceFile with exported function declaration`, [
     it(`returns all exports`, ({ equal }) => {
       const filePath = join(testFixtures, 'exports/function-declaration.ts')
-      const { sourceFile } = setupFixtureTestEnvironment(__dirname, filePath)
-
-      const [actual] = findExportsFromSourceFile(sourceFile)
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
 
       equal(['foo'], actual.exportNames)
       equal(SyntaxKind.FunctionDeclaration, actual.node.kind)
@@ -52,9 +48,8 @@ export const test = describe(`findExportsFromSourceFile`, [
   given(`a SourceFile with exported number literal`, [
     it(`returns all exports`, ({ equal }) => {
       const filePath = join(testFixtures, 'exports/number.ts')
-      const { sourceFile } = setupFixtureTestEnvironment(__dirname, filePath)
-
-      const [actual] = findExportsFromSourceFile(sourceFile)
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
 
       equal(['foo'], actual.exportNames)
       equal(SyntaxKind.VariableStatement, actual.node.kind)
@@ -64,9 +59,8 @@ export const test = describe(`findExportsFromSourceFile`, [
   given(`a SourceFile with exported string literal`, [
     it(`returns all exports`, ({ equal }) => {
       const filePath = join(testFixtures, 'exports/number.ts')
-      const { sourceFile } = setupFixtureTestEnvironment(__dirname, filePath)
-
-      const [actual] = findExportsFromSourceFile(sourceFile)
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
 
       equal(['foo'], actual.exportNames)
       equal(SyntaxKind.VariableStatement, actual.node.kind)
@@ -76,9 +70,8 @@ export const test = describe(`findExportsFromSourceFile`, [
   given(`a SourceFile with exported object literal`, [
     it(`returns all exports`, ({ equal }) => {
       const filePath = join(testFixtures, 'exports/object-literal.ts')
-      const { sourceFile } = setupFixtureTestEnvironment(__dirname, filePath)
-
-      const [actual] = findExportsFromSourceFile(sourceFile)
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
 
       equal(['foo'], actual.exportNames)
       equal(SyntaxKind.VariableStatement, actual.node.kind)
@@ -88,24 +81,55 @@ export const test = describe(`findExportsFromSourceFile`, [
   given(`a SourceFile with default export`, [
     it(`returns all exports`, ({ equal }) => {
       const filePath = join(testFixtures, 'exports/default-export.ts')
-      const { sourceFile } = setupFixtureTestEnvironment(__dirname, filePath)
-
-      const [actual] = findExportsFromSourceFile(sourceFile)
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
 
       equal(['default'], actual.exportNames)
       equal(SyntaxKind.ExportAssignment, actual.node.kind)
     }),
   ]),
 
-  // given(`a SourceFile with identifier`, [
-  //   it(`returns all exports`, ({ equal }) => {
-  //     const filePath = join(testFixtures, 'exports/identifier.ts')
-  //     const { sourceFile } = setupFixtureTestEnvironment(__dirname, filePath)
+  given(`a SourceFile with identifier`, [
+    it(`returns all exports`, ({ equal }) => {
+      const filePath = join(testFixtures, 'exports/identifier.ts')
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
 
-  //     const [actual] = findExportsFromSourceFile(sourceFile)
+      equal(['foo'], actual.exportNames)
+      equal(SyntaxKind.VariableDeclaration, actual.node.kind)
+    }),
+  ]),
 
-  //     equal(['foo'], actual.exportNames)
-  //     equal(SyntaxKind.ExportAssignment, actual.node.kind)
-  //   }),
-  // ]),
+  given(`a SourceFile with { export A as B }`, [
+    it(`returns all exports`, ({ equal }) => {
+      const filePath = join(testFixtures, 'exports/export-as.ts')
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
+
+      equal(['bar'], actual.exportNames)
+      equal(SyntaxKind.VariableDeclaration, actual.node.kind)
+    }),
+  ]),
+
+  given(`a SourceFile with default export identifier`, [
+    it(`returns all exports`, ({ equal }) => {
+      const filePath = join(testFixtures, 'exports/default-export-identifier.ts')
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
+
+      equal(['default'], actual.exportNames)
+      equal(SyntaxKind.VariableStatement, actual.node.kind)
+    }),
+  ]),
+
+  given(`a SourceFile with default export =`, [
+    it(`returns all exports`, ({ equal }) => {
+      const filePath = join(testFixtures, 'exports/export-equal.ts')
+      const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
+      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
+
+      equal(['module.export'], actual.exportNames)
+      equal(SyntaxKind.VariableStatement, actual.node.kind)
+    }),
+  ]),
 ])

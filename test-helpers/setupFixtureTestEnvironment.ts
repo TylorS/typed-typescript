@@ -9,5 +9,5 @@ export function setupFixtureTestEnvironment(directory: string, fixtureFilePath: 
   })
   const sourceFile = program.getSourceFile(fixtureFilePath as Path) as SourceFile
 
-  return { tsConfig, program, sourceFile }
+  return { tsConfig, program, sourceFile, typeChecker: program.getTypeChecker() }
 }

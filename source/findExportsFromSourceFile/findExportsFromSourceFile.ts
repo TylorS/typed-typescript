@@ -1,5 +1,6 @@
-import { Maybe, Nothing } from '@typed/maybe'
+import { chain, fromJust, isJust, Maybe } from '@typed/maybe'
 import {
+  Identifier,
   isClassDeclaration,
   isExportAssignment,
   isExportDeclaration,
@@ -7,63 +8,119 @@ import {
   isFunctionDeclaration,
   isIdentifier,
   isNamedExports,
+  isVariableDeclaration,
   isVariableStatement,
   Node,
   SourceFile,
   SyntaxKind,
+  TypeChecker,
 } from 'typescript'
 import { findChildNodes } from '../findChildNodes'
+import { getSymbolFromType } from '../getSymbolFromType'
+import { getType } from '../getType'
 import { ExportMetadata } from '../types'
 
-export function findExportsFromSourceFile(sourceFile: SourceFile): ExportMetadata[] {
+export const maybesAreSame = <A>(a: Maybe<A>, b: Maybe<A>): boolean =>
+  isJust(a) && isJust(b) && fromJust(a) === fromJust(b)
+
+export function findExportsFromSourceFile(
+  sourceFile: SourceFile,
+  typeChecker: TypeChecker,
+): ExportMetadata[] {
+  const getSymbolOfNode = (node: Node) => chain(getSymbolFromType, getType(typeChecker, node))
   const exportMetadata: ExportMetadata[] = []
 
-  function findExportMetadata(node: Node) {
+  function findExportMetadata(node: Node, identifier?: string) {
+    // ExportDeclaration
+    // ExportAssignment to Identifier
+    if (identifier) {
+      exportMetadata.push({
+        node,
+        exportNames: [identifier],
+      })
+
+      return
+    }
+
     if (isExportAssignment(node)) {
       const text = node.getText(sourceFile)
       const hasDefault = text.includes('export default ')
-      const exportNames = hasDefault ? ['default'] : []
+      const exportNames = hasDefault ? ['default'] : [text]
 
-      return exportMetadata.push({
+      exportMetadata.push({
         node,
-        exportNode: Maybe.of(node),
         exportNames,
       })
+
+      return
     }
 
-    const [identifier] = findChildNodes(isIdentifier, [node])
-    const exportName = identifier.node.getText(sourceFile)
+    // Variable Statements
+    // Class Declaration
+    // Function Declarations
+    const [{ node: exportNameNode }] = findChildNodes(isIdentifier, [node])
+    const exportName = exportNameNode.getText(sourceFile)
 
     return exportMetadata.push({
       node,
       exportNames: [exportName],
-      exportNode: Nothing,
     })
   }
 
-  function checkNode(node: Node) {
-    console.log(SyntaxKind[node.kind])
+  function findNodesOfSymbol(identifier: Identifier) {
+    const maybeSymbol = getSymbolOfNode(identifier)
 
+    return findChildNodes(x => maybesAreSame(getSymbolOfNode(x), maybeSymbol), [sourceFile])
+      .filter(x => !isExportSpecifier(x.node) && !isExportAssignment(x.node))
+      .map(x => x.node)
+  }
+
+  function checkNode(node: Node) {
     const canContainExportModifier =
       isVariableStatement(node) || isClassDeclaration(node) || isFunctionDeclaration(node)
     const hasExportedModifier = canContainExportModifier && hasExportModifer(node)
 
-    if (hasExportedModifier || isExportAssignment(node)) {
+    if (hasExportedModifier) {
+      return findExportMetadata(node)
+    }
+
+    // export = <something>
+    // export default <something>
+    if (isExportAssignment(node)) {
+      const text = node.getText(sourceFile)
+      const hasDefault = text.includes('export default')
+      const [identifier] = findChildNodes(isIdentifier, [node])
+
+      if (identifier) {
+        const [originalNode] = findNodesOfSymbol(identifier.node as Identifier)
+        const nodeToUse = isVariableDeclaration(originalNode)
+          ? originalNode.parent.parent // VariableStatement
+          : originalNode
+
+        return findExportMetadata(nodeToUse, hasDefault ? 'default' : 'module.export')
+      }
+
       return findExportMetadata(node)
     }
 
     if (isExportDeclaration(node)) {
       const [namedExports] = node.getChildren(sourceFile).filter(isNamedExports)
-      const exportSpecifiers = namedExports.elements
+      const { elements: exportSpecifiers } = namedExports
 
       for (const specifier of exportSpecifiers) {
-        console.log(specifier.name.getText(sourceFile))
-      }
-    }
+        // exportName is undefined unless { foo as bar }
+        const [localName, exportName] = findChildNodes(isIdentifier, [specifier])
+        const [originalNode] = findNodesOfSymbol(specifier.name)
 
-    if (isExportSpecifier(node)) {
-      // TODO: find the related nodes to the export names
-      console.log('exportSpecifier', node)
+        findExportMetadata(
+          originalNode,
+          (exportName ? (exportName.node as Identifier) : (localName.node as Identifier)).getText(
+            sourceFile,
+          ),
+        )
+      }
+
+      return
     }
   }
 
