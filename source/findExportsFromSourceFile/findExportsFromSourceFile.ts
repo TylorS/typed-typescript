@@ -27,7 +27,7 @@ export function findExportsFromSourceFile(
   sourceFile: SourceFile,
   typeChecker: TypeChecker,
 ): ExportMetadata[] {
-  return deduplicateMetadata(findAllExportsFromSourceFile(sourceFile, typeChecker))
+  return deduplicateMetadata(findExportMetadata(sourceFile, typeChecker))
 }
 
 function deduplicateMetadata(metadata: ExportMetadata[]) {
@@ -46,10 +46,7 @@ function deduplicateMetadata(metadata: ExportMetadata[]) {
   return deduplicated
 }
 
-function findAllExportsFromSourceFile(
-  sourceFile: SourceFile,
-  typeChecker: TypeChecker,
-): ExportMetadata[] {
+function findExportMetadata(sourceFile: SourceFile, typeChecker: TypeChecker): ExportMetadata[] {
   const getSymbolOfNode = (node: Node) => chain(getSymbolFromType, getType(typeChecker, node))
   const exportMetadata: ExportMetadata[] = []
 
