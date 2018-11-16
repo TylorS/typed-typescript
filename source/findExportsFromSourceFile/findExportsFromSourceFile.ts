@@ -23,11 +23,16 @@ import { ExportMetadata } from '../types'
 export const maybesAreSame = <A>(a: Maybe<A>, b: Maybe<A>): boolean =>
   isJust(a) && isJust(b) && fromJust(a) === fromJust(b)
 
+const sourceFileToExportMetadata = new WeakMap<SourceFile, ExportMetadata[]>()
+
 export function findExportsFromSourceFile(
   sourceFile: SourceFile,
   typeChecker: TypeChecker,
 ): ExportMetadata[] {
-  return deduplicateMetadata(findExportMetadata(sourceFile, typeChecker))
+  return (
+    sourceFileToExportMetadata.get(sourceFile) ||
+    deduplicateMetadata(findExportMetadata(sourceFile, typeChecker))
+  )
 }
 
 function deduplicateMetadata(metadata: ExportMetadata[]) {
