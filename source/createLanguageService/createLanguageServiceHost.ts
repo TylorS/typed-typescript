@@ -6,34 +6,35 @@ import {
   ScriptSnapshot,
   sys,
 } from 'typescript'
+import { findFilePaths } from '../common/findFilePaths'
 import { makeAbsolute } from '../common/makeAbsolute'
-import { findFilePaths } from './findFilePaths'
 
 export interface LanguageServiceHostOptions {
-  cwd: string
+  directory: string
   fileGlobs: string[]
   fileVersions: MapLike<{ version: number }>
   compilerOptions: CompilerOptions
 }
 
 export function createLanguageServiceHost(options: LanguageServiceHostOptions) {
-  const { cwd, fileGlobs, fileVersions, compilerOptions } = options
+  const { directory, fileGlobs, fileVersions, compilerOptions } = options
 
   const languageServiceHost: LanguageServiceHost = {
-    getScriptFileNames: () => findFilePaths(cwd, fileGlobs).map(x => makeAbsolute(cwd, x)),
+    getScriptFileNames: () =>
+      findFilePaths(directory, fileGlobs).map(x => makeAbsolute(directory, x)),
     getScriptVersion: fileName => {
-      const key = makeAbsolute(cwd, fileName)
+      const key = makeAbsolute(directory, fileName)
 
       return fileVersions[key] && fileVersions[key].version.toString()
     },
     getScriptSnapshot: fileName => {
-      const pathname = makeAbsolute(cwd, fileName)
+      const pathname = makeAbsolute(directory, fileName)
       const contents = sys.readFile(pathname)
       const snapshot = contents ? ScriptSnapshot.fromString(contents) : undefined
 
       return snapshot
     },
-    getCurrentDirectory: () => cwd,
+    getCurrentDirectory: () => directory,
     getCompilationSettings: () => compilerOptions,
     getDefaultLibFileName: getDefaultLibFilePath,
     fileExists: sys.fileExists,
