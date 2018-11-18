@@ -2,7 +2,7 @@ import { createProgram, Path, SourceFile } from 'typescript'
 import { findTsConfig } from '../source/findTsConfig'
 
 export function setupFixtureTestEnvironment(directory: string, fixtureFilePath: string) {
-  const tsConfig = findTsConfig(directory)
+  const tsConfig = findTsConfig({ directory })
   const program = createProgram({
     rootNames: [fixtureFilePath],
     options: tsConfig.compilerOptions,

@@ -36,26 +36,33 @@ export function findDependenciesFromSourceFile(
   function checkNode(node: Node) {
     if (isImportDeclaration(node) || (isExportDeclaration(node) && node.moduleSpecifier)) {
       const moduleSpecifier = node.moduleSpecifier as Expression
+      const name = findSpecifierName(sourceFile, getPosition(moduleSpecifier))
+      const file = findSourceFile(sourceFile, program, extensions, name)
 
-      addSourceFile(
-        findSourceFile(
-          sourceFile,
-          program,
-          extensions,
-          findSpecifierName(sourceFile, getPosition(moduleSpecifier)),
-        ),
-      )
+      if (file) {
+        return addSourceFile(file)
+      }
+
+      return dependencies.push({
+        type: 'external',
+        path: name,
+        dependencies: [],
+      })
     }
 
     if (isImportEqualsDeclaration(node)) {
-      addSourceFile(
-        findSourceFile(
-          sourceFile,
-          program,
-          extensions,
-          cleanModuleReferenceName(node.moduleReference.getText(sourceFile)),
-        ),
-      )
+      const name = cleanModuleReferenceName(node.moduleReference.getText(sourceFile))
+      const file = findSourceFile(sourceFile, program, extensions, name)
+
+      if (file) {
+        return addSourceFile(file)
+      }
+
+      return dependencies.push({
+        type: 'external',
+        path: name,
+        dependencies: [],
+      })
     }
   }
 
@@ -65,7 +72,8 @@ export function findDependenciesFromSourceFile(
   syntaxList.getChildren().forEach(checkNode)
 
   return {
-    filePath: sourceFile.fileName,
+    type: 'local',
+    path: sourceFile.fileName,
     dependencies,
   }
 }
@@ -76,17 +84,16 @@ function findSourceFile(
   extensions: string[],
   identifier: string,
 ) {
-  const filePath = resolveSync(identifier, {
-    basedir: dirname(sourceFile.fileName),
-    extensions,
-  })
-  const file = program.getSourceFile(filePath as Path)
+  try {
+    const filePath = resolveSync(identifier, {
+      basedir: dirname(sourceFile.fileName),
+      extensions,
+    })
 
-  if (!file) {
-    throw new Error(`Unable to find SourceFile for ${filePath}`)
+    return program.getSourceFile(filePath as Path)
+  } catch {
+    return null
   }
-
-  return file
 }
 
 function findSpecifierName(sourceFile: SourceFile, position: [number, number]): string {

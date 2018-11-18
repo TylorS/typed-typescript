@@ -22,8 +22,11 @@ export interface NodeTree {
   children: NodeTree[]
 }
 
+export type DependencyType = 'local' | 'external'
+
 export interface DependencyTree {
-  filePath: string
+  type: DependencyType
+  path: string
   dependencies: DependencyTree[]
 }
 

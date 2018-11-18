@@ -1,8 +1,11 @@
 import { curry3 } from '@typed/functions'
-import { Program, SourceFile } from 'typescript'
+import { dirname, extname } from 'path'
+import { sync as resolve } from 'resolve'
+import { findConfigFile, Program, SourceFile, sys } from 'typescript'
+import { flattenDependencies } from '../common/flattenDependencies'
 import { makeAbsolute } from '../common/makeAbsolute'
 import { findDependenciesFromSourceFile } from '../findDependenciesFromSourceFile'
-import { DependencyTree } from '../types'
+import { getFileExtensions } from '../getFileExtensions'
 
 export const isDependencyOfSourceFile: {
   (program: Program, sourceFile: SourceFile, filePath: string): boolean
@@ -13,27 +16,43 @@ export const isDependencyOfSourceFile: {
   }
 } = curry3(__isDependencyOfSourceFile)
 
-const dependencyMap = new WeakMap<SourceFile, string[]>()
-
 function __isDependencyOfSourceFile(
   program: Program,
   sourceFile: SourceFile,
   filePath: string,
 ): boolean {
   const currentDirectory = program.getCurrentDirectory()
-  const dependencies =
-    dependencyMap.get(sourceFile) ||
-    flattenDependencies(findDependenciesFromSourceFile(sourceFile, program))
+  const compilerOptions = program.getCompilerOptions()
+  // Use allowJs since external modules will always resolve to .js
+  const extensions = getFileExtensions({ ...compilerOptions, allowJs: true })
+  const dependencies = flattenDependencies(findDependenciesFromSourceFile(sourceFile, program))
 
-  return dependencies.includes(makeAbsolute(currentDirectory, filePath))
-}
+  for (const { type, path } of dependencies) {
+    if (type === 'local') {
+      if (makeAbsolute(currentDirectory, path) === filePath) {
+        return true
+      }
 
-function flattenDependencies({ filePath, dependencies }: DependencyTree): string[] {
-  const names: string[] = [filePath]
+      continue
+    }
 
-  for (const dependency of dependencies) {
-    names.push(...flattenDependencies(dependency))
+    if (type === 'external') {
+      const packageIndex = resolve(path)
+      const packageJson = findConfigFile(dirname(packageIndex), sys.fileExists, 'package.json')
+
+      if (!packageJson) {
+        continue
+      }
+
+      const packageDir = dirname(packageJson)
+      const withinPackageDirectory = filePath.indexOf(packageDir) === 0
+      const ext = extname(filePath)
+
+      if (withinPackageDirectory && extensions.includes(ext)) {
+        return true
+      }
+    }
   }
 
-  return names
+  return false
 }
