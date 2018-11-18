@@ -11,11 +11,8 @@ export const test = describe(`installTypeScriptSupport`, [
 
       throws(() => require(file))
 
-      const { program } = setupFixtureTestEnvironment(directory, file)
-      const cleanup = installTypeScriptSupport({
-        cwd: directory,
-        compilerOptions: program.getCompilerOptions(),
-      })
+      const { tsConfig } = setupFixtureTestEnvironment(directory, file)
+      const cleanup = installTypeScriptSupport(tsConfig)
 
       const { foobar } = require(file)
 

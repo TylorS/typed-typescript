@@ -1,5 +1,7 @@
+import { dirname } from 'path'
 import { register } from 'tsconfig-paths'
 import { CompilerOptions } from 'typescript'
+import { TsConfig } from '../types'
 import { transpileNode } from './transpileNode'
 
 export type TypeScriptSupportOptions = {
@@ -10,10 +12,7 @@ export type TypeScriptSupportOptions = {
 /**
  * Very side-effectful
  */
-export function installTypeScriptSupport({
-  cwd,
-  compilerOptions,
-}: TypeScriptSupportOptions): () => void {
+export function installTypeScriptSupport({ configPath, compilerOptions }: TsConfig): () => void {
   const { baseUrl, paths } = compilerOptions
 
   const tsPathDispose =
@@ -24,7 +23,7 @@ export function installTypeScriptSupport({
         })
       : () => void 0
 
-  const tranpilationDispose = transpileNode(cwd, compilerOptions)
+  const tranpilationDispose = transpileNode(dirname(configPath), compilerOptions)
 
   return () => {
     tsPathDispose()
