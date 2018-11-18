@@ -12,7 +12,15 @@ const TS_CONFIG =
     ? process.env.TYPED_TEST_TS_CONFIG || 'tsconfig.json'
     : 'tsconfig.json'
 
-export function findTsConfig(directory: string, configFileName: string = TS_CONFIG): TsConfig {
+export type FindTsConfigOptions = {
+  directory: string
+  configFileName?: string
+}
+
+export function findTsConfig({
+  directory,
+  configFileName = TS_CONFIG,
+}: FindTsConfigOptions): TsConfig {
   const configPath = findConfigFile(directory, sys.fileExists, configFileName)
 
   if (!configPath) {
