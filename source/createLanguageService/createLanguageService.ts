@@ -4,6 +4,7 @@ import { createLanguageServiceHost } from './createLanguageServiceHost'
 
 export interface LanguageServiceOptions {
   tsConfig: TsConfig
+  fileVersions?: MapLike<{ version: number }>
   cwd?: string
   fileGlobs?: string[]
   syntaxOnly?: boolean
@@ -12,12 +13,11 @@ export interface LanguageServiceOptions {
 const DEFAULT_EXCLUDE = ['node_modules/**/*']
 
 export function createLanguageService(options: LanguageServiceOptions): LanguageService {
-  const { cwd = process.cwd(), tsConfig, syntaxOnly } = options
+  const { cwd = process.cwd(), tsConfig, syntaxOnly, fileVersions = {} } = options
   const { files = [], include = [], exclude = DEFAULT_EXCLUDE, compilerOptions } = tsConfig
   const fileGlobs = options.fileGlobs
     ? options.fileGlobs
     : [...files, ...include, ...exclude.map(x => `!${x}`)]
-  const fileVersions: MapLike<{ version: number }> = {}
   const languageServiceHost = createLanguageServiceHost({
     cwd,
     fileGlobs,

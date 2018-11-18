@@ -1,12 +1,9 @@
-import { Maybe, Nothing } from '@typed/maybe'
 import { Symbol, Type } from 'typescript'
 
-export function getSymbolFromType(type: Type): Maybe<Symbol> {
+export function getSymbolFromType(type: Type): Symbol | null {
   try {
-    const symbol = type.getSymbol()
-
-    return symbol ? Maybe.of(symbol) : Nothing
+    return type.getSymbol() || null
   } catch {
-    return Nothing
+    return null
   }
 }

@@ -1,4 +1,4 @@
-import { chain, fromJust, isJust, Maybe } from '@typed/maybe'
+import { fromJust, isJust, Maybe } from '@typed/maybe'
 import {
   Identifier,
   isClassDeclaration,
@@ -13,6 +13,7 @@ import {
   Node,
   SourceFile,
   SyntaxKind,
+  Type,
   TypeChecker,
 } from 'typescript'
 import { findChildNodes } from '../findChildNodes'
@@ -52,7 +53,7 @@ function deduplicateMetadata(metadata: ExportMetadata[]) {
 }
 
 function findExportMetadata(sourceFile: SourceFile, typeChecker: TypeChecker): ExportMetadata[] {
-  const getSymbolOfNode = (node: Node) => chain(getSymbolFromType, getType(typeChecker, node))
+  const getSymbolOfNode = (node: Node) => getSymbolFromType(getType(typeChecker, node) as Type)
   const exportMetadata: ExportMetadata[] = []
 
   function findExportMetadata(node: Node, identifier?: string) {
@@ -93,9 +94,13 @@ function findExportMetadata(sourceFile: SourceFile, typeChecker: TypeChecker): E
   }
 
   function findNodesOfSymbol(identifier: Identifier) {
-    const maybeSymbol = getSymbolOfNode(identifier)
+    const symbol = getSymbolOfNode(identifier)
 
-    return findChildNodes(x => maybesAreSame(getSymbolOfNode(x), maybeSymbol), [sourceFile])
+    if (!symbol) {
+      return []
+    }
+
+    return findChildNodes(x => getSymbolOfNode(x) === symbol, [sourceFile])
       .filter(x => !isExportSpecifier(x.node) && !isExportAssignment(x.node))
       .map(x => x.node)
   }

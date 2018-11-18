@@ -43,7 +43,6 @@ function organizeNodesIntoTree(nodes: Node[]): NodeTree[] {
 
     nodeTree.push({
       node,
-      position: position(node),
       children: organizeNodesIntoTree(allBetween),
     })
 

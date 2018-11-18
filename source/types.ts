@@ -10,9 +10,15 @@ export interface TsConfig {
   exclude?: string[]
 }
 
+export interface NodePosition {
+  position: [number, number]
+  startLine: number
+  endLine: number
+  numberOfLines: number
+}
+
 export interface NodeTree {
   node: Node
-  position: [number, number]
   children: NodeTree[]
 }
 
