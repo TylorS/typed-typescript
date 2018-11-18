@@ -1,4 +1,5 @@
 import { sync } from 'glob'
+import { makeAbsolute } from './makeAbsolute'
 
 export function findFilePaths(directory: string, fileGlobs: string[]): string[] {
   const fileNames: string[] = []
@@ -7,5 +8,5 @@ export function findFilePaths(directory: string, fileGlobs: string[]): string[] 
     fileNames.push(...sync(fileGlob, { cwd: directory }))
   }
 
-  return fileNames
+  return fileNames.map(x => makeAbsolute(directory, x))
 }
