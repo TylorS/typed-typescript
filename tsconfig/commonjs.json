@@ -12,6 +12,11 @@
     "lib": [
       "es2016"
     ],
-    "module": "commonjs"
-  }
+    "module": "commonjs",
+    "outDir": "lib"
+  },
+  "include": ["../source/**/*.ts"],
+  "exclude": [
+    "../source/**/*.test.ts"
+  ]
 }

@@ -5,7 +5,10 @@
   "main": "lib/index.js",
   "module": "index.js",
   "scripts": {
-    "test": "typed-test"
+    "test": "typed-test",
+    "build:commonjs": "tsc -p tsconfig/commonjs.json --outDir lib",
+    "build:es2015": "tsc -p tsconfig/module.json --outDir lib.es2015",
+    "build": "rm -rf lib lib.es2015 && npm run build:commonjs && npm run build:es2015"
   },
   "repository": {
     "type": "git",

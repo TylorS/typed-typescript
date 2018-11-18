@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig/commonjs.json",
   "include": [
-    "./source/**/*.ts"
-  ]
+    "source/**/*.ts"
+  ],
+  "exclude": []
 }

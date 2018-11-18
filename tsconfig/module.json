@@ -12,6 +12,11 @@
       "es2016"
     ],
     "target": "es2015",
-    "module": "es2015"
-  }
+    "module": "es2015",
+    "outDir": "lib.es2015"
+  },
+  "include": ["../source/**/*.ts"],
+  "exclude": [
+    "../source/**/*.test.ts"
+  ]
 }
