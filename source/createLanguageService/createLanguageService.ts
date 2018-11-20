@@ -1,5 +1,6 @@
 import { dirname } from 'path'
 import { createLanguageService as createLs, LanguageService, MapLike } from 'typescript'
+import { findFilePaths } from '../common/findFilePaths'
 import { TsConfig } from '../types'
 import { createLanguageServiceHost } from './createLanguageServiceHost'
 
@@ -27,15 +28,12 @@ export function createLanguageService(
   const fileVersions: MapLike<{ version: number }> = {}
   const languageServiceHost = createLanguageServiceHost({
     directory,
-    fileGlobs,
     fileVersions,
     compilerOptions,
   })
 
-  const filePaths = languageServiceHost.getScriptFileNames()
-
-  filePaths.forEach(filePath => {
-    fileVersions[filePath] = { version: 0 }
+  findFilePaths(directory, fileGlobs).forEach(filePath => {
+    fileVersions[filePath] = { version: 1 }
   })
 
   return {

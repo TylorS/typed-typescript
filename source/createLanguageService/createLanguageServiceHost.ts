@@ -6,22 +6,19 @@ import {
   ScriptSnapshot,
   sys,
 } from 'typescript'
-import { findFilePaths } from '../common/findFilePaths'
 import { makeAbsolute } from '../common/makeAbsolute'
 
 export interface LanguageServiceHostOptions {
   directory: string
-  fileGlobs: string[]
   fileVersions: MapLike<{ version: number }>
   compilerOptions: CompilerOptions
 }
 
 export function createLanguageServiceHost(options: LanguageServiceHostOptions) {
-  const { directory, fileGlobs, fileVersions, compilerOptions } = options
+  const { directory, fileVersions, compilerOptions } = options
 
   const languageServiceHost: LanguageServiceHost = {
-    getScriptFileNames: () =>
-      findFilePaths(directory, fileGlobs).map(x => makeAbsolute(directory, x)),
+    getScriptFileNames: () => Object.keys(fileVersions).map(x => makeAbsolute(directory, x)),
     getScriptVersion: fileName => {
       const key = makeAbsolute(directory, fileName)
 

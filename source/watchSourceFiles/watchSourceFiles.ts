@@ -1,17 +1,19 @@
-import { uniq } from '@typed/list'
+import { chain, uniq } from '@typed/list'
 import * as chokidar from 'chokidar'
+import { isMatch } from 'micromatch'
 import { dirname } from 'path'
 import { LanguageService, Program, SourceFile } from 'typescript'
-import { findFilePaths } from '../common/findFilePaths'
-import { flattenDependencies } from '../common/flattenDependencies'
 import { makeAbsolute } from '../common/makeAbsolute'
 import { createLanguageService } from '../createLanguageService'
-import { findDependenciesFromSourceFile } from '../findDependenciesFromSourceFile'
 import { TsConfig } from '../types'
+import { createDependencyManager } from './DependencyManager'
+import { createFileVersionManager } from './FileVersionManager'
+
+const DEFAULT_DEBOUNCE_TIME = 1000
 
 export type WatchSourceFilesOptions = {
   tsConfig: TsConfig
-  onSourceFiles: (event: SourceFilesEvent) => void
+  onSourceFiles: (event: SourceFilesEvent) => Promise<void>
   fileGlobs?: string[]
   debounce?: number
 }
@@ -26,175 +28,96 @@ export type SourceFileWatcher = {
   dispose: () => void
 }
 
-// TODO : refactor and test
-// POC: Complete
 export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWatcher {
-  const { debounce = 500, tsConfig, onSourceFiles } = options
+  const { debounce = DEFAULT_DEBOUNCE_TIME, tsConfig, onSourceFiles } = options
   const { languageService, fileGlobs, fileVersions } = createLanguageService({
     tsConfig,
     fileGlobs: options.fileGlobs,
   })
   const directory = dirname(tsConfig.configPath)
-  let queue: Record<string, Array<'ADD' | 'UPDATE' | 'UNLINK'>> = {}
+  const globs = fileGlobs.map(x => makeAbsolute(directory, x))
+  const fileVersionManager = createFileVersionManager({ directory, fileVersions })
+  const dependencyManager = createDependencyManager({ directory, languageService })
 
-  const filesWeAreWatching = findFilePaths(directory, fileGlobs)
-  const dependencyMap: Record<string, string[]> = {}
+  Object.keys(fileVersions).forEach(file => dependencyManager.addFile(file))
 
-  function updateDependencyMap(file: string, program: Program) {
-    const sourceFile = program.getSourceFile(file)
+  // Uses to defer updates until later
+  let currentlyUpdatingSourceFiles = false
+  let readyToBeUpdated = false
+  let updateSourceFilesTimeout: any
+  let program = languageService.getProgram() as Program
 
-    if (sourceFile) {
-      const dependencies = flattenDependencies(
-        findDependenciesFromSourceFile(sourceFile, program),
-      ).filter(x => x.type === 'local')
-
-      for (const { path } of dependencies) {
-        if (path !== file) {
-          if (!dependencyMap[path]) {
-            dependencyMap[path] = [file]
-          } else {
-            dependencyMap[path].push(file)
-          }
-        }
-      }
-    }
+  function matchesFilePatterns(file: string) {
+    return globs.some(x => isMatch(makeAbsolute(directory, file), x))
   }
 
-  const program = languageService.getProgram() as Program
-  for (const file of filesWeAreWatching) {
-    updateDependencyMap(file, program)
-  }
-
-  let drainingQueue = false
-  let id: any
-
-  function addEvent(filePath: string, event: 'ADD' | 'UPDATE' | 'UNLINK') {
-    const events = queue[filePath] || []
-
-    events.push(event)
-
-    queue[filePath] = events
-  }
-
-  function drainQueue() {
-    if (drainingQueue) {
-      return scheduleNextEvent()
+  async function updateSourceFiles() {
+    if (currentlyUpdatingSourceFiles) {
+      return (readyToBeUpdated = true)
     }
 
-    const updates = queue
+    currentlyUpdatingSourceFiles = true
 
-    drainingQueue = true
-    queue = {}
-
-    const filePaths = Object.keys(updates)
-    const program = languageService.getProgram() as Program
-    const sourceFilesToGet: string[] = []
-
-    for (const filePath of filePaths) {
-      const { type, amount } = diffUpdates(updates[filePath])
-
-      if (type === 'UNLINK') {
-        delete fileVersions[filePath]
-
-        if (dependencyMap[filePath]) {
-          delete dependencyMap[filePath]
+    program = languageService.getProgram() as Program
+    const filesThatHaveChanged: string[] = fileVersionManager.applyChanges()
+    const sourceFiles = uniq(
+      chain(filePath => {
+        if (matchesFilePatterns(filePath)) {
+          return [filePath]
         }
 
-        continue
-      }
-
-      if (type === 'ADD') {
-        fileVersions[filePath] = { version: amount }
-      }
-
-      if (type === 'UPDATE') {
-        fileVersions[filePath].version += amount
-      }
-
-      updateDependencyMap(filePath, program)
-
-      if (filesWeAreWatching.includes(filePath)) {
-        sourceFilesToGet.push(filePath)
-      } else {
-        ;(dependencyMap[filePath] || []).forEach(x => sourceFilesToGet.push(x))
-      }
-    }
-
-    const sourceFiles = uniq(sourceFilesToGet)
-      .filter(x => filesWeAreWatching.includes(x))
-      .map(filePath => program.getSourceFile(filePath))
+        return dependencyManager.getDependentsOf(filePath).filter(matchesFilePatterns)
+      }, filesThatHaveChanged),
+    )
+      .map(x => program.getSourceFile(x))
       .filter(Boolean) as SourceFile[]
 
-    onSourceFiles({ sourceFiles, program, languageService })
+    if (sourceFiles.length > 0) {
+      await onSourceFiles({ sourceFiles, program, languageService })
+    }
 
-    drainingQueue = false
+    currentlyUpdatingSourceFiles = false
+
+    if (readyToBeUpdated) {
+      readyToBeUpdated = false
+
+      scheduleNextEvent()
+    }
   }
-  function addFile(filePath: string) {
-    addEvent(filePath, 'ADD')
-    scheduleNextEvent()
-  }
-  function updateFile(filePath: string) {
-    addEvent(filePath, 'UPDATE')
-    scheduleNextEvent()
-  }
-  function unlinkFile(filePath: string) {
-    addEvent(filePath, 'UNLINK')
-    scheduleNextEvent()
-  }
+
   function scheduleNextEvent() {
-    clearTimeout(id)
-    id = setTimeout(drainQueue, debounce)
+    clearTimeout(updateSourceFilesTimeout)
+    updateSourceFilesTimeout = setTimeout(updateSourceFiles, debounce)
   }
 
-  const watcher = chokidar.watch([...program.getSourceFiles().map(x => x.fileName), ...fileGlobs], {
+  const watcher = chokidar.watch([...fileGlobs, ...program.getSourceFiles().map(x => x.fileName)], {
     cwd: directory,
   })
 
-  watcher.on('add', path => addFile(makeAbsolute(directory, path)))
-  watcher.on('change', path => updateFile(makeAbsolute(directory, path)))
-  watcher.on('unlink', path => unlinkFile(makeAbsolute(directory, path)))
+  watcher.on('add', path => {
+    fileVersionManager.addFile(path)
+    dependencyManager.addFile(path)
+    scheduleNextEvent()
+  })
+
+  watcher.on('change', path => {
+    fileVersionManager.updateFile(path)
+    dependencyManager.updateFile(path)
+    scheduleNextEvent()
+  })
+
+  watcher.on('unlink', path => {
+    fileVersionManager.unlinkFile(path)
+    dependencyManager.unlinkFile(path)
+    scheduleNextEvent()
+  })
 
   const dispose = () => {
-    clearTimeout(id)
+    clearTimeout(updateSourceFilesTimeout)
     watcher.close()
   }
 
   return {
     dispose,
-  }
-}
-
-export type DiffUpdate = {
-  type: 'ADD' | 'UPDATE' | 'UNLINK'
-  amount: number
-}
-
-function diffUpdates(updates: Array<'ADD' | 'UPDATE' | 'UNLINK'>): DiffUpdate {
-  let amount = 0
-  let type: 'ADD' | 'UPDATE' | 'UNLINK' = 'UNLINK'
-
-  for (const update of updates) {
-    if (update === 'ADD') {
-      type = 'ADD'
-      amount = 1
-    }
-
-    if (update === 'UPDATE') {
-      if (type !== 'ADD') {
-        type = 'UPDATE'
-      }
-
-      amount++
-    }
-
-    if (update === 'UNLINK') {
-      type = 'UNLINK'
-      amount = 0
-    }
-  }
-
-  return {
-    type,
-    amount,
   }
 }
