@@ -51,24 +51,25 @@ export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWa
     return globs.some(x => isMatch(makeAbsolute(directory, file), x))
   }
 
+  function getMatchingFiles(filePath: string) {
+    if (matchesFilePatterns(filePath)) {
+      return [filePath]
+    }
+
+    return dependencyManager.getDependentsOf(filePath).filter(matchesFilePatterns)
+  }
+
   async function updateSourceFiles() {
     if (currentlyUpdatingSourceFiles) {
       return (readyToBeUpdated = true)
     }
 
     currentlyUpdatingSourceFiles = true
-
     program = languageService.getProgram() as Program
-    const filesThatHaveChanged: string[] = fileVersionManager.applyChanges()
-    const sourceFiles = uniq(
-      chain(filePath => {
-        if (matchesFilePatterns(filePath)) {
-          return [filePath]
-        }
 
-        return dependencyManager.getDependentsOf(filePath).filter(matchesFilePatterns)
-      }, filesThatHaveChanged),
-    )
+    const filesThatHaveChanged: string[] = fileVersionManager.applyChanges()
+    const sourceFilePaths = uniq(chain(getMatchingFiles, filesThatHaveChanged))
+    const sourceFiles = sourceFilePaths
       .map(x => program.getSourceFile(x))
       .filter(Boolean) as SourceFile[]
 
