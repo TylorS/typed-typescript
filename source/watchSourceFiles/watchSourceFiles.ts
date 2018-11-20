@@ -41,23 +41,18 @@ export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWa
 
   Object.keys(fileVersions).forEach(file => dependencyManager.addFile(file))
 
+  const matchesFilePatterns = (file: string) =>
+    globs.some(x => isMatch(makeAbsolute(directory, file), x))
+  const getMatchingFiles = (filePath: string) =>
+    matchesFilePatterns(filePath)
+      ? [filePath]
+      : dependencyManager.getDependentsOf(filePath).filter(matchesFilePatterns)
+
   // Uses to defer updates until later
   let currentlyUpdatingSourceFiles = false
   let readyToBeUpdated = false
   let updateSourceFilesTimeout: any
   let program = languageService.getProgram() as Program
-
-  function matchesFilePatterns(file: string) {
-    return globs.some(x => isMatch(makeAbsolute(directory, file), x))
-  }
-
-  function getMatchingFiles(filePath: string) {
-    if (matchesFilePatterns(filePath)) {
-      return [filePath]
-    }
-
-    return dependencyManager.getDependentsOf(filePath).filter(matchesFilePatterns)
-  }
 
   async function updateSourceFiles() {
     if (currentlyUpdatingSourceFiles) {
@@ -65,9 +60,11 @@ export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWa
     }
 
     currentlyUpdatingSourceFiles = true
-    program = languageService.getProgram() as Program
 
     const filesThatHaveChanged: string[] = fileVersionManager.applyChanges()
+
+    program = languageService.getProgram() as Program
+
     const sourceFilePaths = uniq(chain(getMatchingFiles, filesThatHaveChanged))
     const sourceFiles = sourceFilePaths
       .map(x => program.getSourceFile(x))
