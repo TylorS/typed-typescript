@@ -14,7 +14,6 @@ const EXPECTED_DEPENDENCIES_OF_FILE_VERIONS_MANAGER = [
   '../findDependenciesFromSourceFile/findDependenciesFromSourceFile.ts',
   '../getFileExtensions.ts',
   '../getPosition.ts',
-  '../types.ts',
 ]
 
 export const test = describe(`DependencyManager`, [

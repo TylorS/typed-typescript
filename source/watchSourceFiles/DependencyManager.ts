@@ -1,7 +1,7 @@
 import { LanguageService, Program, SourceFile } from 'typescript'
-import { flattenDependencies } from '../common/flattenDependencies'
 import { makeAbsolute } from '../common/makeAbsolute'
 import { findDependenciesFromSourceFile } from '../findDependenciesFromSourceFile'
+import { flattenDependencies } from '../flattenDependencies'
 
 export interface DependencyManager {
   readonly getDependenciesOf: (filePath: string) => string[]

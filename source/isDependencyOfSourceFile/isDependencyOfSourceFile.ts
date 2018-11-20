@@ -2,9 +2,9 @@ import { curry3 } from '@typed/functions'
 import { dirname, extname } from 'path'
 import { sync as resolve } from 'resolve'
 import { findConfigFile, Program, SourceFile, sys } from 'typescript'
-import { flattenDependencies } from '../common/flattenDependencies'
 import { makeAbsolute } from '../common/makeAbsolute'
 import { findDependenciesFromSourceFile } from '../findDependenciesFromSourceFile'
+import { flattenDependencies } from '../flattenDependencies'
 import { getFileExtensions } from '../getFileExtensions'
 
 export const isDependencyOfSourceFile: {
