@@ -1,12 +1,8 @@
 import { chain } from '@typed/list'
-import { DependencyTree, DependencyType } from './types'
+import { Dependency, DependencyTree } from './types'
 
-export function flattenDependencies({
-  type,
-  path,
-  dependencies,
-}: DependencyTree): Array<{ type: DependencyType; path: string }> {
-  const names: Array<{ type: DependencyType; path: string }> = [{ type, path }]
+export function flattenDependencies({ type, path, dependencies }: DependencyTree): Dependency[] {
+  const names: Dependency[] = [{ type, path }]
   const hasBeenSeen = (path: string) => names.findIndex(x => x.path === path) > -1
 
   for (const dependency of chain(flattenDependencies, dependencies)) {

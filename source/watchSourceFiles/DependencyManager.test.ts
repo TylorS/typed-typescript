@@ -5,15 +5,15 @@ import { findTsConfig } from '../findTsConfig'
 import { createDependencyManager } from './DependencyManager'
 import { createFileVersionManager } from './FileVersionManager'
 
-const EXPECTED_DEPENDENCIES_OF_FILE_VERIONS_MANAGER = [
+const EXPECTED_LOCAL_DEPENDENCIES_OF_FILE_VERIONS_MANAGER: string[] = [
   'DependencyManager.ts',
-  '../common/flattenDependencies.ts',
-  '../types.ts',
   '../common/makeAbsolute.ts',
   '../findDependenciesFromSourceFile/index.ts',
   '../findDependenciesFromSourceFile/findDependenciesFromSourceFile.ts',
   '../getFileExtensions.ts',
   '../getPosition.ts',
+  '../types.ts',
+  '../flattenDependencies.ts',
 ]
 
 export const test = describe(`DependencyManager`, [
@@ -47,8 +47,12 @@ export const test = describe(`DependencyManager`, [
 
         // TODO: make this resistant to folder structure changes requiring changes
         equal(
-          EXPECTED_DEPENDENCIES_OF_FILE_VERIONS_MANAGER,
-          dependencyManager.getDependenciesOf(fileName).map(x => relative(__dirname, x)),
+          EXPECTED_LOCAL_DEPENDENCIES_OF_FILE_VERIONS_MANAGER,
+          dependencyManager
+            .getDependenciesOf(fileName)
+            .filter(x => x.type === 'local')
+            .map(x => x.path)
+            .map(x => relative(__dirname, x)),
         )
       }),
     ]),
@@ -69,13 +73,24 @@ export const test = describe(`DependencyManager`, [
         dependencyManager.addFile(fileName)
 
         equal(
-          EXPECTED_DEPENDENCIES_OF_FILE_VERIONS_MANAGER,
-          dependencyManager.getDependenciesOf(fileName).map(x => relative(__dirname, x)),
+          EXPECTED_LOCAL_DEPENDENCIES_OF_FILE_VERIONS_MANAGER,
+          dependencyManager
+            .getDependenciesOf(fileName)
+            .filter(x => x.type === 'local')
+            .map(x => x.path)
+            .map(x => relative(__dirname, x)),
         )
 
         dependencyManager.unlinkFile(fileName)
 
-        equal([], dependencyManager.getDependenciesOf(fileName).map(x => relative(__dirname, x)))
+        equal(
+          [],
+          dependencyManager
+            .getDependenciesOf(fileName)
+            .filter(x => x.type === 'local')
+            .map(x => x.path)
+            .map(x => relative(__dirname, x)),
+        )
       }),
     ]),
   ]),
@@ -96,7 +111,7 @@ export const test = describe(`DependencyManager`, [
 
         ok(
           dependencyManager.isDependentOf(
-            EXPECTED_DEPENDENCIES_OF_FILE_VERIONS_MANAGER[2],
+            EXPECTED_LOCAL_DEPENDENCIES_OF_FILE_VERIONS_MANAGER[2],
             fileName,
           ),
         )

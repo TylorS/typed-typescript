@@ -22,13 +22,16 @@ export interface NodeTree {
   children: NodeTree[]
 }
 
-export type DependencyType = 'local' | 'external'
-
-export interface DependencyTree {
-  type: DependencyType
-  path: string
+export interface DependencyTree extends Dependency {
   dependencies: DependencyTree[]
 }
+
+export interface Dependency {
+  readonly type: DependencyType
+  readonly path: string
+}
+
+export type DependencyType = 'local' | 'external'
 
 export interface ExportMetadata {
   exportNames: string[]
