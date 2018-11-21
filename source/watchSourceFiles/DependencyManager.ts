@@ -52,6 +52,10 @@ export function createDependencyManager({
     if (dependencyMap[filePath]) {
       delete dependencyMap[filePath]
     }
+
+    if (dependentMap[filePath]) {
+      delete dependentMap[filePath]
+    }
   }
 
   function isDependentOf(dependency: string, file: string) {
