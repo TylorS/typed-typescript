@@ -46,6 +46,8 @@ export function createDependencyManager({
     }
   }
 
+  // TODO: This should probably clean up dependencies info if not
+  // dependended on by other files
   function unlinkFile(file: string) {
     const filePath = getPath(file)
 
