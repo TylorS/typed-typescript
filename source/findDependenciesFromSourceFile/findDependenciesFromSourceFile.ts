@@ -1,23 +1,8 @@
 import { dirname } from 'path'
 import { sync as resolveSync } from 'resolve'
-import {
-  Expression,
-  isExportDeclaration,
-  isImportDeclaration,
-  isImportEqualsDeclaration,
-  Node,
-  Path,
-  Program,
-  SourceFile,
-} from 'typescript'
+import { Path, preProcessFile, Program, SourceFile } from 'typescript'
 import { getFileExtensions } from '../getFileExtensions'
-import { getPosition } from '../getPosition'
 import { DependencyTree } from '../types'
-
-const OPENING_STRING_LITERAL = /^('|")/
-const CLOSING_STRING_LITERAL = /('|")$/
-const OPENING_REQUIRE_CALL_EXPRESSION = /(^require\()/
-const CLOSING_CALL_EXPRESSION = /\)$/
 
 // Only supports top-level imports
 // TODO: support dynamic require()/import()
@@ -27,55 +12,45 @@ export function findDependenciesFromSourceFile(
   program: Program,
 ): DependencyTree {
   const extensions = getFileExtensions(program.getCompilerOptions())
-  const dependencies: DependencyTree[] = []
-
-  function addSourceFile(file: SourceFile) {
-    dependencies.push(findDependenciesFromSourceFile(file, program))
-  }
-
-  function checkNode(node: Node) {
-    if (isImportDeclaration(node) || (isExportDeclaration(node) && node.moduleSpecifier)) {
-      const moduleSpecifier = node.moduleSpecifier as Expression
-      const name = findSpecifierName(sourceFile, getPosition(moduleSpecifier))
-      const file = findSourceFile(sourceFile, program, extensions, name)
-
-      if (file) {
-        return addSourceFile(file)
-      }
-
-      return dependencies.push({
-        type: 'external',
-        path: name,
-        dependencies: [],
-      })
-    }
-
-    if (isImportEqualsDeclaration(node)) {
-      const name = cleanModuleReferenceName(node.moduleReference.getText(sourceFile))
-      const file = findSourceFile(sourceFile, program, extensions, name)
-
-      if (file) {
-        return addSourceFile(file)
-      }
-
-      return dependencies.push({
-        type: 'external',
-        path: name,
-        dependencies: [],
-      })
-    }
-  }
-
-  // SourceFile always has SyntaxList at 0
-  const syntaxList = sourceFile.getChildAt(0)
-  // Imports and Exports must be top-level
-  syntaxList.getChildren().forEach(checkNode)
-
-  return {
+  const root: DependencyTree = {
     type: 'local',
     path: sourceFile.fileName,
-    dependencies,
+    dependencies: [],
   }
+
+  const sourceFilesToProcess = [{ sourceFile, tree: root }]
+
+  while (sourceFilesToProcess.length > 0) {
+    const { sourceFile, tree } = sourceFilesToProcess.shift() as {
+      sourceFile: SourceFile
+      tree: DependencyTree
+    }
+    const { importedFiles, referencedFiles } = preProcessFile(sourceFile.text, true, true)
+    const fileNames = importedFiles.concat(referencedFiles).map(x => x.fileName)
+
+    while (fileNames.length > 0) {
+      const fileName = fileNames.shift() as string
+      const file = findSourceFile(sourceFile, program, extensions, fileName)
+      const dependency: DependencyTree = {
+        type: file ? 'local' : 'external',
+        path: file ? file.fileName : fileName,
+        dependencies: [],
+      }
+
+      if (tree.dependencies.findIndex(x => x.path === dependency.path) === -1) {
+        tree.dependencies.push(dependency)
+
+        if (file) {
+          sourceFilesToProcess.push({
+            sourceFile: file,
+            tree: dependency,
+          })
+        }
+      }
+    }
+  }
+
+  return root
 }
 
 function findSourceFile(
@@ -94,21 +69,4 @@ function findSourceFile(
   } catch {
     return null
   }
-}
-
-function findSpecifierName(sourceFile: SourceFile, position: [number, number]): string {
-  return cleanIdentifierName(sourceFile.getFullText().slice(position[0], position[1]))
-}
-
-function cleanModuleReferenceName(name: string): string {
-  return cleanIdentifierName(
-    name.replace(OPENING_REQUIRE_CALL_EXPRESSION, '').replace(CLOSING_CALL_EXPRESSION, ''),
-  )
-}
-
-function cleanIdentifierName(name: string): string {
-  return name
-    .trim()
-    .replace(OPENING_STRING_LITERAL, '')
-    .replace(CLOSING_STRING_LITERAL, '')
 }

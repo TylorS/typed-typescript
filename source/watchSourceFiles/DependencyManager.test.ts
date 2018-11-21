@@ -11,7 +11,6 @@ const EXPECTED_LOCAL_DEPENDENCIES_OF_FILE_VERIONS_MANAGER: string[] = [
   '../findDependenciesFromSourceFile/index.ts',
   '../findDependenciesFromSourceFile/findDependenciesFromSourceFile.ts',
   '../getFileExtensions.ts',
-  '../getPosition.ts',
   '../types.ts',
   '../flattenDependencies.ts',
 ]
