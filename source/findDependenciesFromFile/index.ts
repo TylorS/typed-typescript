@@ -1,1 +1,1 @@
-export * from './findDependenciesFromSourceFile'
+export * from './findDependenciesFromFile'
