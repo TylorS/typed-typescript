@@ -1,4 +1,3 @@
-import { fromJust, isJust, Maybe } from '@typed/maybe'
 import {
   Identifier,
   isClassDeclaration,
@@ -7,7 +6,6 @@ import {
   isExportSpecifier,
   isFunctionDeclaration,
   isIdentifier,
-  isNamedExports,
   isVariableDeclaration,
   isVariableStatement,
   Node,
@@ -20,9 +18,6 @@ import { findChildNodes } from '../findChildNodes'
 import { getSymbolFromType } from '../getSymbolFromType'
 import { getType } from '../getType'
 import { ExportMetadata } from '../types'
-
-export const maybesAreSame = <A>(a: Maybe<A>, b: Maybe<A>): boolean =>
-  isJust(a) && isJust(b) && fromJust(a) === fromJust(b)
 
 const sourceFileToExportMetadata = new WeakMap<SourceFile, ExportMetadata[]>()
 
@@ -134,21 +129,22 @@ function findExportMetadata(sourceFile: SourceFile, typeChecker: TypeChecker): E
     }
 
     if (isExportDeclaration(node)) {
-      const [namedExports] = node.getChildren(sourceFile).filter(isNamedExports)
-      const { elements: exportSpecifiers } = namedExports
+      if (node.exportClause) {
+        const { elements: exportSpecifiers } = node.exportClause
 
-      for (const specifier of exportSpecifiers) {
-        // exportName is undefined unless { foo as bar }
-        const [localName, exportName] = findChildNodes(isIdentifier, [specifier])
-        const [originalNode] = findNodesOfSymbol(specifier.name)
+        for (const specifier of exportSpecifiers) {
+          // exportName is undefined unless { foo as bar }
+          const [localName, exportName] = findChildNodes(isIdentifier, [specifier])
+          const [originalNode] = findNodesOfSymbol(specifier.name)
 
-        findExportMetadata(
-          originalNode,
-          ((exportName ? exportName.node : localName.node) as Identifier).getText(sourceFile),
-        )
+          findExportMetadata(
+            originalNode,
+            ((exportName ? exportName.node : localName.node) as Identifier).getText(sourceFile),
+          )
+        }
+
+        return
       }
-
-      return
     }
   }
 

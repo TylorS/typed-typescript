@@ -7,9 +7,7 @@ import { findExportsFromSourceFile } from './findExportsFromSourceFile'
 const testFixtures = join(__dirname, '../../test-helpers/fixtures')
 
 /* TODO:
-  Add re-exports test
-  Add export =
-  Add export = identifier
+  Add export * from 'foo'
 */
 export const test = describe(`findExportsFromSourceFile`, [
   given(`a SourceFile with exported arrow function`, [
