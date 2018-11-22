@@ -1,7 +1,7 @@
 import { chain, uniq } from '@typed/list'
-import * as chokidar from 'chokidar'
 import { isMatch } from 'micromatch'
 import { dirname } from 'path'
+import sane from 'sane'
 import { LanguageService, Program, SourceFile } from 'typescript'
 import { makeAbsolute } from '../common/makeAbsolute'
 import { createLanguageService } from '../createLanguageService'
@@ -34,10 +34,14 @@ export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWa
     tsConfig,
     fileGlobs: options.fileGlobs,
   })
+  const program = languageService.getProgram() as Program
+  const compilerOptions = program.getCompilerOptions()
   const directory = dirname(tsConfig.configPath)
   const fileVersionManager = createFileVersionManager({ directory, fileVersions })
-  const dependencyManager = createDependencyManager({ directory, languageService })
-  const globs = fileGlobs.map(x => makeAbsolute(directory, x))
+  const dependencyManager = createDependencyManager({ directory, compilerOptions })
+  const globs = fileGlobs.map(x =>
+    x.startsWith('!') ? '!' + makeAbsolute(directory, x.slice(1)) : makeAbsolute(directory, x),
+  )
   const matchesFilePatterns = (file: string) =>
     globs.some(x => isMatch(makeAbsolute(directory, file), x))
   const getMatchingFiles = (filePath: string) =>
@@ -49,6 +53,19 @@ export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWa
   let currentlyUpdatingSourceFiles = false
   let readyToBeUpdated = false
   let updateSourceFilesTimeout: any
+
+  async function performUpdate(files: string[]) {
+    const program = languageService.getProgram() as Program
+    const sourceFilePaths = uniq(chain(getMatchingFiles, files))
+    const sourceFiles = sourceFilePaths
+      .map(x => program.getSourceFile(x))
+      .filter(Boolean) as SourceFile[]
+
+    // If there are relevant SourceFiles perform side-effects.
+    if (sourceFiles.length > 0) {
+      await onSourceFiles({ sourceFiles, program, languageService })
+    }
+  }
 
   async function updateSourceFiles() {
     // If currently updating mark ready to be re-run
@@ -62,16 +79,8 @@ export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWa
     // filesThatHaveChanged - Needs to come before .getProgram() to ensure the
     // program is created with any new files available as SourceFile
     const filesThatHaveChanged: string[] = fileVersionManager.applyChanges()
-    const program = languageService.getProgram() as Program
-    const sourceFilePaths = uniq(chain(getMatchingFiles, filesThatHaveChanged))
-    const sourceFiles = sourceFilePaths
-      .map(x => program.getSourceFile(x))
-      .filter(Boolean) as SourceFile[]
 
-    // If there are relevant SourceFiles perform side-effects.
-    if (sourceFiles.length > 0) {
-      await onSourceFiles({ sourceFiles, program, languageService })
-    }
+    await performUpdate(filesThatHaveChanged)
 
     currentlyUpdatingSourceFiles = false
 
@@ -88,27 +97,31 @@ export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWa
     updateSourceFilesTimeout = setTimeout(updateSourceFiles, debounce)
   }
 
-  const program = languageService.getProgram() as Program
-  const watcher = chokidar.watch([...fileGlobs, ...program.getSourceFiles().map(x => x.fileName)], {
-    cwd: directory,
-  })
+  const watcher = sane(directory, { glob: fileGlobs })
 
   watcher.on('add', path => {
     fileVersionManager.addFile(path)
     dependencyManager.addFile(path)
     scheduleNextEvent()
   })
-
   watcher.on('change', path => {
     fileVersionManager.updateFile(path)
     dependencyManager.updateFile(path)
     scheduleNextEvent()
   })
-
-  watcher.on('unlink', path => {
+  watcher.on('delete', path => {
     fileVersionManager.unlinkFile(path)
     dependencyManager.unlinkFile(path)
     scheduleNextEvent()
+  })
+
+  const initialFiles = chain(getMatchingFiles, Object.keys(fileVersions))
+
+  performUpdate(initialFiles).then(() => {
+    console.log('here')
+    console.time('add Dependencies')
+    initialFiles.forEach(x => (console.log(x), dependencyManager.addFile(x)))
+    console.timeEnd('add Dependencies')
   })
 
   const dispose = () => {
