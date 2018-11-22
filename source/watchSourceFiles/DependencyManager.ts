@@ -1,6 +1,6 @@
-import { LanguageService, Program, SourceFile } from 'typescript'
+import { CompilerOptions } from 'typescript'
 import { makeAbsolute } from '../common/makeAbsolute'
-import { findDependenciesFromSourceFile } from '../findDependenciesFromSourceFile'
+import { findDependenciesFromFile } from '../findDependenciesFromFile'
 import { flattenDependencies } from '../flattenDependencies'
 import { Dependency } from '../types'
 
@@ -15,12 +15,12 @@ export interface DependencyManager {
 
 export interface CreateDependencyManagerOptions {
   directory: string
-  languageService: LanguageService
+  compilerOptions: CompilerOptions
 }
 
 export function createDependencyManager({
   directory,
-  languageService,
+  compilerOptions,
 }: CreateDependencyManagerOptions): DependencyManager {
   const dependencyMap: Record<string, Dependency[]> = {}
   const dependentMap: Record<string, string[]> = {}
@@ -28,9 +28,7 @@ export function createDependencyManager({
 
   function addFile(file: string): void {
     const path = getPath(file)
-    const program = languageService.getProgram() as Program
-    const sourceFile = program.getSourceFile(path) as SourceFile
-    const dependencies = flattenDependencies(findDependenciesFromSourceFile(sourceFile, program))
+    const dependencies = flattenDependencies(findDependenciesFromFile(path, compilerOptions))
 
     dependencyMap[path] = dependencies
 
@@ -40,7 +38,7 @@ export function createDependencyManager({
         dependentMap[dependencyPath] = []
       }
 
-      if (!dependentMap[dependencyPath].includes(path)) {
+      if (!dependentMap[dependencyPath].includes(path) && path !== dependencyPath) {
         dependentMap[dependencyPath].push(path)
       }
     }

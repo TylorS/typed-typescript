@@ -1,18 +1,16 @@
 import { describe, given, it } from '@typed/test'
 import { relative } from 'path'
+import { Program } from 'typescript'
 import { createLanguageService } from '../createLanguageService'
 import { findTsConfig } from '../findTsConfig'
 import { createDependencyManager } from './DependencyManager'
 import { createFileVersionManager } from './FileVersionManager'
 
-const EXPECTED_LOCAL_DEPENDENCIES_OF_FILE_VERIONS_MANAGER: string[] = [
-  'DependencyManager.ts',
-  '../common/makeAbsolute.ts',
-  '../findDependenciesFromSourceFile/index.ts',
-  '../findDependenciesFromSourceFile/findDependenciesFromSourceFile.ts',
-  '../getFileExtensions.ts',
-  '../types.ts',
-  '../flattenDependencies.ts',
+const EXPECTED_DEPENDENCIES_OF_FILE_VERIONS_MANAGER: string[] = [
+  'typescript',
+  'path',
+  '/Users/tylors/code/tylors/typed-typescript/source/common/makeAbsolute.ts',
+  '/Users/tylors/code/tylors/typed-typescript/source/watchSourceFiles/FileVersionManager.ts',
 ]
 
 export const test = describe(`DependencyManager`, [
@@ -21,9 +19,10 @@ export const test = describe(`DependencyManager`, [
       it(`return an empty array`, ({ equal }) => {
         const tsConfig = findTsConfig({ directory: __dirname })
         const { languageService } = createLanguageService({ tsConfig })
+        const program = languageService.getProgram() as Program
         const dependencyManager = createDependencyManager({
           directory: __dirname,
-          languageService,
+          compilerOptions: program.getCompilerOptions(),
         })
 
         equal([], dependencyManager.getDependenciesOf('foo.ts'))
@@ -34,24 +33,21 @@ export const test = describe(`DependencyManager`, [
       it(`return an array of all dependencies`, ({ equal }) => {
         const tsConfig = findTsConfig({ directory: __dirname })
         const { languageService, fileVersions } = createLanguageService({ tsConfig })
+        const program = languageService.getProgram() as Program
         const fileVersionManager = createFileVersionManager({ directory: __dirname, fileVersions })
         const dependencyManager = createDependencyManager({
           directory: __dirname,
-          languageService,
+          compilerOptions: program.getCompilerOptions(),
         })
-        const fileName = 'DependencyManager.ts'
+        const fileName = 'FileVersionManager.ts'
 
         fileVersionManager.addFile(fileName)
         dependencyManager.addFile(fileName)
 
         // TODO: make this resistant to folder structure changes requiring changes
         equal(
-          EXPECTED_LOCAL_DEPENDENCIES_OF_FILE_VERIONS_MANAGER,
-          dependencyManager
-            .getDependenciesOf(fileName)
-            .filter(x => x.type === 'local')
-            .map(x => x.path)
-            .map(x => relative(__dirname, x)),
+          EXPECTED_DEPENDENCIES_OF_FILE_VERIONS_MANAGER,
+          dependencyManager.getDependenciesOf(fileName).map(x => x.path),
         )
       }),
     ]),
@@ -61,23 +57,20 @@ export const test = describe(`DependencyManager`, [
       it(`removes a file from management`, ({ equal }) => {
         const tsConfig = findTsConfig({ directory: __dirname })
         const { languageService, fileVersions } = createLanguageService({ tsConfig })
+        const program = languageService.getProgram() as Program
         const fileVersionManager = createFileVersionManager({ directory: __dirname, fileVersions })
         const dependencyManager = createDependencyManager({
           directory: __dirname,
-          languageService,
+          compilerOptions: program.getCompilerOptions(),
         })
-        const fileName = 'DependencyManager.ts'
+        const fileName = 'FileVersionManager.ts'
 
         fileVersionManager.addFile(fileName)
         dependencyManager.addFile(fileName)
 
         equal(
-          EXPECTED_LOCAL_DEPENDENCIES_OF_FILE_VERIONS_MANAGER,
-          dependencyManager
-            .getDependenciesOf(fileName)
-            .filter(x => x.type === 'local')
-            .map(x => x.path)
-            .map(x => relative(__dirname, x)),
+          EXPECTED_DEPENDENCIES_OF_FILE_VERIONS_MANAGER,
+          dependencyManager.getDependenciesOf(fileName).map(x => x.path),
         )
 
         dependencyManager.unlinkFile(fileName)
@@ -98,10 +91,11 @@ export const test = describe(`DependencyManager`, [
       it(`returns true`, ({ ok }) => {
         const tsConfig = findTsConfig({ directory: __dirname })
         const { languageService, fileVersions } = createLanguageService({ tsConfig })
+        const program = languageService.getProgram() as Program
         const fileVersionManager = createFileVersionManager({ directory: __dirname, fileVersions })
         const dependencyManager = createDependencyManager({
           directory: __dirname,
-          languageService,
+          compilerOptions: program.getCompilerOptions(),
         })
         const fileName = 'DependencyManager.ts'
 
@@ -110,7 +104,7 @@ export const test = describe(`DependencyManager`, [
 
         ok(
           dependencyManager.isDependentOf(
-            EXPECTED_LOCAL_DEPENDENCIES_OF_FILE_VERIONS_MANAGER[2],
+            EXPECTED_DEPENDENCIES_OF_FILE_VERIONS_MANAGER[2],
             fileName,
           ),
         )
@@ -121,10 +115,11 @@ export const test = describe(`DependencyManager`, [
       it(`returns false`, ({ notOk }) => {
         const tsConfig = findTsConfig({ directory: __dirname })
         const { languageService, fileVersions } = createLanguageService({ tsConfig })
+        const program = languageService.getProgram() as Program
         const fileVersionManager = createFileVersionManager({ directory: __dirname, fileVersions })
         const dependencyManager = createDependencyManager({
           directory: __dirname,
-          languageService,
+          compilerOptions: program.getCompilerOptions(),
         })
         const fileName = 'DependencyManager.ts'
 
