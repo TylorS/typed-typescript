@@ -1,5 +1,5 @@
 import { curry2 } from '@typed/functions'
-import { forEachChild, Node } from 'typescript'
+import { Node } from 'typescript'
 import { NodeTree } from '../types'
 
 export const findChildNodes: {
@@ -13,16 +13,17 @@ function __findChildNodes(predicate: (node: Node) => boolean, nodes: Node[]): No
 
 function findAllNodes(predicate: (node: Node) => boolean, nodes: Node[]): Node[] {
   const nodeTrees: Node[] = []
+  const nodesToProcess: Node[] = nodes
 
-  function visitNode(node: Node) {
+  while (nodesToProcess.length > 0) {
+    const node = nodesToProcess.shift() as Node
+
     if (predicate(node)) {
       nodeTrees.push(node)
     }
 
-    forEachChild(node, visitNode)
+    nodesToProcess.push(...node.getChildren())
   }
-
-  nodes.forEach(visitNode)
 
   return nodeTrees
 }
