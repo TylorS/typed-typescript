@@ -3,7 +3,7 @@ import { dirname, extname } from 'path'
 import { sync as resolve } from 'resolve'
 import { findConfigFile, Program, SourceFile, sys } from 'typescript'
 import { makeAbsolute } from '../common/makeAbsolute'
-import { findDependenciesFromSourceFile } from '../findDependenciesFromSourceFile'
+import { findDependenciesFromFile } from '../findDependenciesFromFile'
 import { flattenDependencies } from '../flattenDependencies'
 import { getFileExtensions } from '../getFileExtensions'
 
@@ -25,7 +25,9 @@ function __isDependencyOfSourceFile(
   const compilerOptions = program.getCompilerOptions()
   // Use allowJs since external modules will always resolve to .js
   const extensions = getFileExtensions({ ...compilerOptions, allowJs: true })
-  const dependencies = flattenDependencies(findDependenciesFromSourceFile(sourceFile, program))
+  const dependencies = flattenDependencies(
+    findDependenciesFromFile(sourceFile.fileName, compilerOptions),
+  )
 
   for (const { type, path } of dependencies) {
     if (type === 'local') {
