@@ -7,7 +7,7 @@ import { findDependenciesFromFile } from './findDependenciesFromFile'
 const testHelpers = join(__dirname, '../../test-helpers')
 
 export const findSourceFileDependenciesTest = describe(`findDependenciesFromSourceFile`, [
-  given(`a SourceFile`, [
+  given(`a filename and compiler options`, [
     it(`returns its Dependencies`, ({ equal }) => {
       const fixtureFilePath = join(testHelpers, 'fixtures/modules/foobar.ts')
       const { program } = setupFixtureTestEnvironment(__dirname, fixtureFilePath)
@@ -44,7 +44,7 @@ export const findSourceFileDependenciesTest = describe(`findDependenciesFromSour
     }),
   ]),
 
-  given(`A SourceFile with import Foo = require('foo')`, [
+  given(`A filename with import Foo = require('foo')`, [
     it(`returns it's dependencies`, ({ equal }) => {
       const fixtureFilePath = join(testHelpers, 'fixtures/modules/require.ts')
       const { program } = setupFixtureTestEnvironment(__dirname, fixtureFilePath)
@@ -66,7 +66,7 @@ export const findSourceFileDependenciesTest = describe(`findDependenciesFromSour
     }),
   ]),
 
-  given(`A SourceFile with external module reference`, [
+  given(`A file with external module reference`, [
     it(`returns it's dependencies`, ({ equal }) => {
       const fixtureFilePath = join(testHelpers, 'fixtures/modules/node-module.ts')
       const { program } = setupFixtureTestEnvironment(

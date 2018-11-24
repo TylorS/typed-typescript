@@ -14,18 +14,21 @@ export function findDependenciesFromFile(
   // ensure can resolve node dependencies
   compilerOptions.allowJs = true
   const extensions = getFileExtensions(compilerOptions)
+
   const root: DependencyTree = {
     type: 'local',
     path: fileName,
     dependencies: [],
   }
   const sourceFilesToProcess = [{ path: fileName, tree: root }]
+  const filesProcessed: Record<string, DependencyTree> = {}
 
   while (sourceFilesToProcess.length > 0) {
     const { path, tree } = sourceFilesToProcess.shift() as {
       path: string
       tree: DependencyTree
     }
+    const resolveOptions = { basedir: dirname(path), extensions }
     const { importedFiles, referencedFiles } = preProcessFile(
       sys.readFile(path) as string,
       true,
@@ -35,24 +38,39 @@ export function findDependenciesFromFile(
 
     while (fileNames.length > 0) {
       const fileName = fileNames.shift() as string
-      const filePath = resolveSync(fileName, { basedir: dirname(path), extensions })
-      const type = filePath.includes('node_modules') ? 'external' : 'local'
-      const isLocal = type === 'local'
+      const filePath = resolveSync(fileName, resolveOptions)
+      const isExternal = filePath.includes('node_modules')
+      const type = isExternal ? 'external' : 'local'
+      const pathToUse = isExternal ? fileName : filePath
+      const alreadyBeenUsed = tree.dependencies.findIndex(x => x.path === pathToUse) > -1
+
+      if (alreadyBeenUsed) {
+        continue
+      }
+
+      const currentTree = filesProcessed[pathToUse]
+
+      if (currentTree) {
+        tree.dependencies.push(currentTree)
+
+        continue
+      }
+
       const dependency: DependencyTree = {
         type,
-        path: isLocal ? filePath : fileName,
+        path: pathToUse,
         dependencies: [],
       }
 
-      if (tree.dependencies.findIndex(x => x.path === dependency.path) === -1) {
-        tree.dependencies.push(dependency)
+      filesProcessed[pathToUse] = dependency
 
-        if (isLocal) {
-          sourceFilesToProcess.push({
-            path: filePath,
-            tree: dependency,
-          })
-        }
+      tree.dependencies.push(dependency)
+
+      if (!isExternal) {
+        sourceFilesToProcess.push({
+          path: filePath,
+          tree: dependency,
+        })
       }
     }
   }

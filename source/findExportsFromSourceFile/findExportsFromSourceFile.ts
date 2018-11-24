@@ -15,6 +15,7 @@ import {
   TypeChecker,
 } from 'typescript'
 import { findChildNodes } from '../findChildNodes'
+import { findFirstChildNode } from '../findFirstChildNode'
 import { getSymbolFromType } from '../getSymbolFromType'
 import { getType } from '../getType'
 import { ExportMetadata } from '../types'
@@ -79,13 +80,16 @@ function findExportMetadata(sourceFile: SourceFile, typeChecker: TypeChecker): E
     // Variable Statements
     // Class Declaration
     // Function Declarations
-    const [{ node: exportNameNode }] = findChildNodes(isIdentifier, [node])
-    const exportName = exportNameNode.getText(sourceFile)
+    const exportNameNode = findFirstChildNode(isIdentifier, node) as Node
 
-    return exportMetadata.push({
-      node,
-      exportNames: [exportName],
-    })
+    if (exportNameNode) {
+      const exportName = exportNameNode.getText(sourceFile)
+
+      return exportMetadata.push({
+        node,
+        exportNames: [exportName],
+      })
+    }
   }
 
   function findNodesOfSymbol(identifier: Identifier) {
@@ -114,10 +118,10 @@ function findExportMetadata(sourceFile: SourceFile, typeChecker: TypeChecker): E
     if (isExportAssignment(node)) {
       const text = node.getText(sourceFile)
       const hasDefault = text.includes('export default')
-      const [identifier] = findChildNodes(isIdentifier, [node])
+      const identifier = findFirstChildNode(isIdentifier, node)
 
       if (identifier) {
-        const [originalNode] = findNodesOfSymbol(identifier.node as Identifier)
+        const [originalNode] = findNodesOfSymbol(identifier as Identifier)
         const nodeToUse = isVariableDeclaration(originalNode)
           ? originalNode.parent.parent // VariableStatement
           : originalNode

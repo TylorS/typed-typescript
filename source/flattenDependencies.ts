@@ -1,15 +1,24 @@
+import { uniq } from '@typed/list'
 import { Dependency, DependencyTree } from './types'
 
 export function flattenDependencies(tree: DependencyTree): Dependency[] {
-  return resolveDependencyOrder(treeToMap(tree), tree)
+  return uniq(resolveDependencyOrder(treeToMap(tree), tree))
 }
 
 function treeToMap(dependencyTree: DependencyTree): DepMap {
   const map: DepMap = new Map()
   const depsToProcess = [dependencyTree]
+  const pathsProcessed: string[] = []
 
   while (depsToProcess.length > 0) {
     const tree = depsToProcess.shift() as DependencyTree
+    const path = tree.path
+
+    if (pathsProcessed.includes(path)) {
+      continue
+    }
+
+    pathsProcessed.push(path)
     const list = map.get(tree) || []
 
     for (const dependency of tree.dependencies) {
@@ -39,9 +48,10 @@ function resolveSpecific(
   dependency: DependencyTree,
   filesProcessed: string[],
 ) {
-  const path = dependency.path
+  const { path, type } = dependency
+
   if (filesProcessed.indexOf(path) !== filesProcessed.lastIndexOf(path)) {
-    throw new Error('Circular dependency found: ' + filesProcessed.join(' > '))
+    return
   }
 
   const deps = depMap.get(dependency)
@@ -55,7 +65,7 @@ function resolveSpecific(
   const index = result.findIndex(x => x.path === path)
 
   if (index === -1) {
-    result.push(dependency)
+    result.push({ path, type })
     depMap.delete(dependency)
   }
 

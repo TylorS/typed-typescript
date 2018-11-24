@@ -1,7 +1,7 @@
 import { chain, uniq } from '@typed/list'
 import { isMatch } from 'micromatch'
-import { dirname } from 'path'
-import sane from 'sane'
+import nsfw from 'nsfw'
+import { dirname, join } from 'path'
 import { LanguageService, Program, SourceFile } from 'typescript'
 import { makeAbsolute } from '../common/makeAbsolute'
 import { createLanguageService } from '../createLanguageService'
@@ -28,7 +28,9 @@ export type SourceFileWatcher = {
   dispose: () => void
 }
 
-export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWatcher {
+export async function watchSourceFiles(
+  options: WatchSourceFilesOptions,
+): Promise<SourceFileWatcher> {
   const { debounce = DEFAULT_DEBOUNCE_TIME, tsConfig, onSourceFiles } = options
   const { languageService, fileGlobs, fileVersions } = createLanguageService({
     tsConfig,
@@ -48,6 +50,9 @@ export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWa
     matchesFilePatterns(filePath)
       ? [filePath]
       : dependencyManager.getDependentsOf(filePath).filter(matchesFilePatterns)
+  const initialFileNames = Object.keys(fileVersions)
+
+  initialFileNames.forEach(dependencyManager.addFile)
 
   // Used to defer updates until later
   let currentlyUpdatingSourceFiles = false
@@ -94,39 +99,49 @@ export function watchSourceFiles(options: WatchSourceFilesOptions): SourceFileWa
 
   function scheduleNextEvent() {
     clearTimeout(updateSourceFilesTimeout)
-    updateSourceFilesTimeout = setTimeout(updateSourceFiles, debounce)
+    updateSourceFilesTimeout = setTimeout(updateSourceFiles, 0)
   }
 
-  const watcher = sane(directory, { glob: fileGlobs })
+  const watcher = await nsfw(
+    directory,
+    (events: nsfw.Event[]) => {
+      for (const event of events) {
+        if (event.file !== 'folder') {
+          const path = join(event.directory, event.file)
 
-  watcher.on('add', path => {
-    fileVersionManager.addFile(path)
-    dependencyManager.addFile(path)
-    scheduleNextEvent()
-  })
-  watcher.on('change', path => {
-    fileVersionManager.updateFile(path)
-    dependencyManager.updateFile(path)
-    scheduleNextEvent()
-  })
-  watcher.on('delete', path => {
-    fileVersionManager.unlinkFile(path)
-    dependencyManager.unlinkFile(path)
-    scheduleNextEvent()
-  })
+          if (event.action === 0) {
+            fileVersionManager.addFile(path)
+            dependencyManager.addFile(path)
+          }
 
-  const initialFiles = chain(getMatchingFiles, Object.keys(fileVersions))
+          if (event.action === 2 || event.action === 3) {
+            fileVersionManager.updateFile(path)
+            dependencyManager.updateFile(path)
+          }
 
-  performUpdate(initialFiles).then(() => {
-    console.log('here')
-    console.time('add Dependencies')
-    initialFiles.forEach(x => (console.log(x), dependencyManager.addFile(x)))
-    console.timeEnd('add Dependencies')
-  })
+          if (event.action === 1) {
+            fileVersionManager.unlinkFile(path)
+            dependencyManager.unlinkFile(path)
+          }
+        }
+      }
+
+      scheduleNextEvent()
+    },
+    {
+      debounceMS: debounce,
+    },
+  )
+
+  const initialFiles = chain(getMatchingFiles, initialFileNames)
+
+  performUpdate(initialFiles)
+
+  watcher.start()
 
   const dispose = () => {
     clearTimeout(updateSourceFilesTimeout)
-    watcher.close()
+    watcher.stop()
   }
 
   return {
