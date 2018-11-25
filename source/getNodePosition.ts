@@ -11,7 +11,7 @@ export const getNodePosition: {
 function __getNodePosition(sourceFile: SourceFile, node: Node): NodePosition {
   const [start, end] = getPosition(node)
   const startLine = sourceFile.text.slice(0, start).split(/\n/g).length
-  const text = node.getFullText()
+  const text = node.getText(sourceFile)
   const numberOfLines = text.split(/\n/g).length
   const endLine = startLine + numberOfLines
 
