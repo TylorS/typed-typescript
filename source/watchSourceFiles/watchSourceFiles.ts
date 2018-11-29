@@ -47,9 +47,10 @@ export async function watchSourceFiles(
   const matchesFilePatterns = (file: string) =>
     globs.some(x => isMatch(makeAbsolute(directory, file), x))
   const getMatchingFiles = (filePath: string) =>
-    matchesFilePatterns(filePath)
-      ? [filePath]
-      : dependencyManager.getDependentsOf(filePath).filter(matchesFilePatterns)
+    dependencyManager
+      .getDependentsOf(filePath)
+      .concat(filePath)
+      .filter(matchesFilePatterns)
   const initialFileNames = Object.keys(fileVersions)
 
   initialFileNames.forEach(dependencyManager.addFile)
@@ -81,11 +82,7 @@ export async function watchSourceFiles(
     // Only one instance of this should be running at a time
     currentlyUpdatingSourceFiles = true
 
-    // filesThatHaveChanged - Needs to come before .getProgram() to ensure the
-    // program is created with any new files available as SourceFile
-    const filesThatHaveChanged: string[] = fileVersionManager.applyChanges()
-
-    await performUpdate(filesThatHaveChanged)
+    await performUpdate(fileVersionManager.applyChanges())
 
     currentlyUpdatingSourceFiles = false
 
@@ -99,8 +96,10 @@ export async function watchSourceFiles(
 
   function scheduleNextEvent() {
     clearTimeout(updateSourceFilesTimeout)
-    updateSourceFilesTimeout = setTimeout(updateSourceFiles, 0)
+    updateSourceFilesTimeout = setTimeout(updateSourceFiles, debounce)
   }
+
+  performUpdate(chain(getMatchingFiles, initialFileNames))
 
   const watcher = await nsfw(
     directory,
@@ -114,7 +113,7 @@ export async function watchSourceFiles(
             dependencyManager.addFile(path)
           }
 
-          if (event.action === 2 || event.action === 3) {
+          if (event.action === 2) {
             fileVersionManager.updateFile(path)
             dependencyManager.updateFile(path)
           }
@@ -122,6 +121,14 @@ export async function watchSourceFiles(
           if (event.action === 1) {
             fileVersionManager.unlinkFile(path)
             dependencyManager.unlinkFile(path)
+          }
+
+          if (event.action === 3) {
+            const oldPath = join(event.directory, event.oldFile)
+            fileVersionManager.unlinkFile(oldPath)
+            dependencyManager.unlinkFile(oldPath)
+            fileVersionManager.updateFile(path)
+            dependencyManager.updateFile(path)
           }
         }
       }
@@ -132,10 +139,6 @@ export async function watchSourceFiles(
       debounceMS: debounce,
     },
   )
-
-  const initialFiles = chain(getMatchingFiles, initialFileNames)
-
-  performUpdate(initialFiles)
 
   watcher.start()
 
