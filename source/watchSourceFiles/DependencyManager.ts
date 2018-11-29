@@ -50,10 +50,15 @@ export function createDependencyManager({
     }
   }
 
-  // TODO: This should probably clean up dependencies info if not
-  // dependended on by other files
+  function updateFile(file: string) {
+    fileVersionManager.updateFile(file)
+    addFile(file)
+  }
+
   function unlinkFile(file: string) {
     const filePath = getPath(file)
+
+    getDependentsOf(filePath).forEach(updateFile)
 
     fileVersionManager.unlinkFile(filePath)
 
@@ -63,6 +68,14 @@ export function createDependencyManager({
 
     if (dependentMap[filePath]) {
       delete dependentMap[filePath]
+    }
+
+    if (dependentOf[filePath]) {
+      delete dependentOf[filePath]
+    }
+
+    if (dependentVersionMap[filePath]) {
+      delete dependentVersionMap[filePath]
     }
   }
 
@@ -121,13 +134,10 @@ export function createDependencyManager({
 
   return {
     addFile: (file: string) => {
-      addFile(file)
       fileVersionManager.addFile(file)
-    },
-    updateFile: (file: string) => {
       addFile(file)
-      fileVersionManager.updateFile(file)
     },
+    updateFile,
     unlinkFile,
     isDependentOf,
     getDependenciesOf,
