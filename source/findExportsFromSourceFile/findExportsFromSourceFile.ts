@@ -5,19 +5,18 @@ import {
   isExportDeclaration,
   isExportSpecifier,
   isFunctionDeclaration,
+  isFunctionLike,
   isIdentifier,
   isVariableDeclaration,
   isVariableStatement,
   Node,
   SourceFile,
   SyntaxKind,
-  Type,
   TypeChecker,
 } from 'typescript'
 import { findChildNodes } from '../findChildNodes'
 import { findFirstChildNode } from '../findFirstChildNode'
-import { getSymbolFromType } from '../getSymbolFromType'
-import { getType } from '../getType'
+import { getSymbolFromNode } from '../getSymbolFromNode'
 import { ExportMetadata } from '../types'
 
 const sourceFileToExportMetadata = new WeakMap<SourceFile, ExportMetadata[]>()
@@ -49,7 +48,7 @@ function deduplicateMetadata(metadata: ExportMetadata[]) {
 }
 
 function findExportMetadata(sourceFile: SourceFile, typeChecker: TypeChecker): ExportMetadata[] {
-  const getSymbolOfNode = (node: Node) => getSymbolFromType(getType(typeChecker, node) as Type)
+  const getSymbolOfNode = (node: Node) => getSymbolFromNode(typeChecker, node)
   const exportMetadata: ExportMetadata[] = []
 
   function findExportMetadata(node: Node, identifier?: string) {
@@ -122,9 +121,7 @@ function findExportMetadata(sourceFile: SourceFile, typeChecker: TypeChecker): E
 
       if (identifier) {
         const [originalNode] = findNodesOfSymbol(identifier as Identifier)
-        const nodeToUse = isVariableDeclaration(originalNode)
-          ? originalNode.parent.parent // VariableStatement
-          : originalNode
+        const nodeToUse = findNodeToUse(originalNode)
 
         return findExportMetadata(nodeToUse, hasDefault ? 'default' : 'module.export')
       }
@@ -158,6 +155,18 @@ function findExportMetadata(sourceFile: SourceFile, typeChecker: TypeChecker): E
   syntaxList.getChildren(sourceFile).forEach(checkNode)
 
   return exportMetadata
+}
+
+function findNodeToUse(node: Node): Node {
+  if (isVariableDeclaration(node)) {
+    return node.parent.parent
+  }
+
+  if (isFunctionLike(node) && node.parent) {
+    return findNodeToUse(node.parent)
+  }
+
+  return node
 }
 
 function hasExportModifer(node: Node): boolean {

@@ -135,10 +135,11 @@ export const test = describe(`findExportsFromSourceFile`, [
     it(`returns all exports`, ({ equal }) => {
       const filePath = join(testFixtures, 'exports/multiple-export-names.ts')
       const { sourceFile, typeChecker } = setupFixtureTestEnvironment(__dirname, filePath)
-      const [actual] = findExportsFromSourceFile(sourceFile, typeChecker)
+      const sourceExports = findExportsFromSourceFile(sourceFile, typeChecker)
 
-      equal(['foo', 'default'], actual.exportNames)
-      equal(SyntaxKind.VariableStatement, actual.node.kind)
+      equal(1, sourceExports.length)
+      equal(['foo', 'default'], sourceExports[0].exportNames)
+      equal(SyntaxKind.VariableStatement, sourceExports[0].node.kind)
     }),
   ]),
 ])
