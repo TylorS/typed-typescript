@@ -1,8 +1,10 @@
+import { chain, uniq } from '@typed/list'
 import { CompilerOptions } from 'typescript'
 import { makeAbsolute } from '../common/makeAbsolute'
 import { findDependenciesFromFile } from '../findDependenciesFromFile'
 import { flattenDependencies } from '../flattenDependencies'
 import { Dependency } from '../types'
+import { FileVersionManager } from './FileVersionManager'
 
 export interface DependencyManager {
   readonly getDependenciesOf: (filePath: string) => Dependency[]
@@ -16,14 +18,18 @@ export interface DependencyManager {
 export interface CreateDependencyManagerOptions {
   directory: string
   compilerOptions: CompilerOptions
+  fileVersionManager: FileVersionManager
 }
 
 export function createDependencyManager({
   directory,
   compilerOptions,
+  fileVersionManager,
 }: CreateDependencyManagerOptions): DependencyManager {
   const dependencyMap: Record<string, Dependency[]> = {}
   const dependentMap: Record<string, string[]> = {}
+  const dependentVersionMap: Record<string, number> = {}
+  const dependentOf: Record<string, string[]> = {}
   const getPath = (path: string) => makeAbsolute(directory, path)
 
   function addFile(file: string): void {
@@ -49,6 +55,8 @@ export function createDependencyManager({
   function unlinkFile(file: string) {
     const filePath = getPath(file)
 
+    fileVersionManager.unlinkFile(filePath)
+
     if (dependencyMap[filePath]) {
       delete dependencyMap[filePath]
     }
@@ -72,13 +80,54 @@ export function createDependencyManager({
     return dependencyMap[getPath(file)] || []
   }
 
-  function getDependentsOf(file: string) {
-    return dependentMap[getPath(file)] || []
+  function getDependentsOf(file: string): string[] {
+    const filePath = getPath(file)
+    const fileVersion = fileVersionManager.versionOf(filePath)
+    const dependentVersion = dependentVersionMap[filePath]
+
+    if (fileVersion === dependentVersion) {
+      return dependentOf[filePath]
+    }
+
+    const dependents = dependentMap[filePath] || []
+    const filesToProcess = chain(x => dependentMap[x], dependents)
+
+    while (filesToProcess.length > 0) {
+      const path = getPath(filesToProcess.shift() as string)
+      const pathVersion = fileVersionManager.versionOf(path)
+      const pathDependentVersion = dependentVersionMap[filePath]
+
+      if (pathVersion === pathDependentVersion && dependentOf[path]) {
+        dependents.push(path, ...dependentOf[path])
+        continue
+      }
+
+      dependents.push(path)
+
+      const subdependants = dependentMap[path]
+
+      if (subdependants) {
+        filesToProcess.push(...subdependants)
+      }
+    }
+
+    const dependentsOfFile = uniq(dependents)
+
+    dependentVersionMap[filePath] = fileVersion
+    dependentOf[filePath] = dependentsOfFile
+
+    return dependentsOfFile
   }
 
   return {
-    addFile,
-    updateFile: addFile,
+    addFile: (file: string) => {
+      addFile(file)
+      fileVersionManager.addFile(file)
+    },
+    updateFile: (file: string) => {
+      addFile(file)
+      fileVersionManager.updateFile(file)
+    },
     unlinkFile,
     isDependentOf,
     getDependenciesOf,

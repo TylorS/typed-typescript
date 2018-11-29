@@ -19,6 +19,7 @@ export interface FileVersionManager {
   readonly updateFile: (filePath: string) => void
   readonly unlinkFile: (filePath: string) => void
   readonly applyChanges: () => string[]
+  readonly versionOf: (filePath: string) => number
 }
 
 export type CreateFileVersionManagerOptions = {
@@ -58,6 +59,12 @@ export function createFileVersionManager({
     return files
   }
 
+  function versionOf(file: string): number {
+    const { version } = fileVersions[makeAbsolute(directory, file)] || { version: -1 }
+
+    return version
+  }
+
   return {
     get queue() {
       return queue
@@ -66,6 +73,7 @@ export function createFileVersionManager({
     updateFile,
     unlinkFile,
     applyChanges,
+    versionOf,
   }
 }
 

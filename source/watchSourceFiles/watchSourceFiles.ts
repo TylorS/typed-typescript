@@ -40,7 +40,11 @@ export async function watchSourceFiles(
   const compilerOptions = program.getCompilerOptions()
   const directory = dirname(tsConfig.configPath)
   const fileVersionManager = createFileVersionManager({ directory, fileVersions })
-  const dependencyManager = createDependencyManager({ directory, compilerOptions })
+  const dependencyManager = createDependencyManager({
+    directory,
+    compilerOptions,
+    fileVersionManager,
+  })
   const globs = fileGlobs.map(x =>
     x.startsWith('!') ? '!' + makeAbsolute(directory, x.slice(1)) : makeAbsolute(directory, x),
   )
@@ -109,25 +113,21 @@ export async function watchSourceFiles(
           const path = join(event.directory, event.file)
 
           if (event.action === 0) {
-            fileVersionManager.addFile(path)
             dependencyManager.addFile(path)
           }
 
           if (event.action === 2) {
-            fileVersionManager.updateFile(path)
             dependencyManager.updateFile(path)
           }
 
           if (event.action === 1) {
-            fileVersionManager.unlinkFile(path)
             dependencyManager.unlinkFile(path)
           }
 
           if (event.action === 3) {
             const oldPath = join(event.directory, event.oldFile)
-            fileVersionManager.unlinkFile(oldPath)
+
             dependencyManager.unlinkFile(oldPath)
-            fileVersionManager.updateFile(path)
             dependencyManager.updateFile(path)
           }
         }
