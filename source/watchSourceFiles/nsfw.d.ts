@@ -27,7 +27,7 @@ declare module "nsfw" {
       action: 3,
       directory: string,
       oldFile: string,
-      file: string,
+      newFile: string,
     }
 
     export type Event = CreateEvent | DeleteEvent | ModifiedEvent | RenamedEvent

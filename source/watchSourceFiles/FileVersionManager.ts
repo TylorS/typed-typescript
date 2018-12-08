@@ -20,6 +20,7 @@ export interface FileVersionManager {
   readonly unlinkFile: (filePath: string) => void
   readonly applyChanges: () => string[]
   readonly versionOf: (filePath: string) => number
+  readonly files: () => string[]
 }
 
 export type CreateFileVersionManagerOptions = {
@@ -74,6 +75,7 @@ export function createFileVersionManager({
     unlinkFile,
     applyChanges,
     versionOf,
+    files: () => Object.keys(fileVersions).filter(x => !!x),
   }
 }
 

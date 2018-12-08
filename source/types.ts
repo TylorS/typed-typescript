@@ -37,3 +37,18 @@ export interface ExportMetadata {
   exportNames: string[]
   node: Node
 }
+
+export const enum LogLevel {
+  NONE,
+  INFO,
+  DEBUG,
+}
+
+export interface Logger {
+  readonly info: (...msg: string[]) => Promise<void>
+  readonly error: (...msg: string[]) => Promise<void>
+  readonly clear: (...msg: string[]) => Promise<void>
+  readonly debug: (...msg: string[]) => Promise<void>
+  readonly timeStart: (msg: string) => Promise<void>
+  readonly timeEnd: (msg: string) => Promise<void>
+}

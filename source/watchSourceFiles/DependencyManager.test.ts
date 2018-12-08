@@ -18,16 +18,12 @@ export const test = describe(`DependencyManager`, [
     given(`a file thats not been added`, [
       it(`return an empty array`, ({ equal }) => {
         const tsConfig = findTsConfig({ directory: __dirname })
-        const { languageService } = createLanguageService({ tsConfig })
+        const { languageService, fileVersions } = createLanguageService({ tsConfig })
         const program = languageService.getProgram() as Program
-        const fileVersionManager = createFileVersionManager({
-          directory: __dirname,
-          fileVersions: {},
-        })
         const dependencyManager = createDependencyManager({
           directory: __dirname,
           compilerOptions: program.getCompilerOptions(),
-          fileVersionManager,
+          fileVersions,
         })
 
         equal([], dependencyManager.getDependenciesOf('foo.ts'))
@@ -43,10 +39,11 @@ export const test = describe(`DependencyManager`, [
         const dependencyManager = createDependencyManager({
           directory: __dirname,
           compilerOptions: program.getCompilerOptions(),
-          fileVersionManager,
+          fileVersions,
         })
         const fileName = 'FileVersionManager.ts'
 
+        fileVersionManager.addFile(fileName)
         dependencyManager.addFile(fileName)
 
         // TODO: make this resistant to folder structure changes requiring changes
@@ -67,10 +64,11 @@ export const test = describe(`DependencyManager`, [
         const dependencyManager = createDependencyManager({
           directory: __dirname,
           compilerOptions: program.getCompilerOptions(),
-          fileVersionManager,
+          fileVersions,
         })
         const fileName = 'FileVersionManager.ts'
 
+        fileVersionManager.addFile(fileName)
         dependencyManager.addFile(fileName)
 
         equal(
@@ -101,10 +99,11 @@ export const test = describe(`DependencyManager`, [
         const dependencyManager = createDependencyManager({
           directory: __dirname,
           compilerOptions: program.getCompilerOptions(),
-          fileVersionManager,
+          fileVersions,
         })
         const fileName = 'DependencyManager.ts'
 
+        fileVersionManager.addFile(fileName)
         dependencyManager.addFile(fileName)
 
         ok(
@@ -125,10 +124,11 @@ export const test = describe(`DependencyManager`, [
         const dependencyManager = createDependencyManager({
           directory: __dirname,
           compilerOptions: program.getCompilerOptions(),
-          fileVersionManager,
+          fileVersions,
         })
         const fileName = 'DependencyManager.ts'
 
+        fileVersionManager.addFile(fileName)
         dependencyManager.addFile(fileName)
 
         notOk(dependencyManager.isDependentOf('./watchSourceFiles', fileName))

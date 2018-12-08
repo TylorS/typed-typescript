@@ -1,11 +1,11 @@
 import { chain, uniq } from '@typed/list'
 import { isMatch } from 'micromatch'
 import nsfw from 'nsfw'
-import { dirname, join } from 'path'
+import { basename, dirname, join } from 'path'
 import { LanguageService, Program, SourceFile } from 'typescript'
 import { makeAbsolute } from '../common/makeAbsolute'
 import { createLanguageService } from '../createLanguageService'
-import { TsConfig } from '../types'
+import { Logger, TsConfig } from '../types'
 import { createDependencyManager } from './DependencyManager'
 import { createFileVersionManager } from './FileVersionManager'
 
@@ -13,6 +13,7 @@ const DEFAULT_DEBOUNCE_TIME = 1000
 
 export type WatchSourceFilesOptions = {
   tsConfig: TsConfig
+  logger: Logger
   onSourceFiles: (event: SourceFilesEvent) => Promise<void>
   fileGlobs?: string[]
   debounce?: number
@@ -25,39 +26,41 @@ export type SourceFilesEvent = {
 }
 
 export type SourceFileWatcher = {
+  start: () => void
   dispose: () => void
 }
 
 export async function watchSourceFiles(
   options: WatchSourceFilesOptions,
 ): Promise<SourceFileWatcher> {
-  const { debounce = DEFAULT_DEBOUNCE_TIME, tsConfig, onSourceFiles } = options
+  const { debounce = DEFAULT_DEBOUNCE_TIME, tsConfig, onSourceFiles, logger } = options
   const { languageService, fileGlobs, fileVersions } = createLanguageService({
     tsConfig,
     fileGlobs: options.fileGlobs,
   })
-  const program = languageService.getProgram() as Program
+  let program = languageService.getProgram() as Program
   const compilerOptions = program.getCompilerOptions()
   const directory = dirname(tsConfig.configPath)
   const fileVersionManager = createFileVersionManager({ directory, fileVersions })
   const dependencyManager = createDependencyManager({
     directory,
     compilerOptions,
-    fileVersionManager,
+    fileVersions,
   })
   const globs = fileGlobs.map(x =>
     x.startsWith('!') ? '!' + makeAbsolute(directory, x.slice(1)) : makeAbsolute(directory, x),
   )
   const matchesFilePatterns = (file: string) =>
     globs.some(x => isMatch(makeAbsolute(directory, file), x))
-  const getMatchingFiles = (filePath: string) =>
-    dependencyManager
-      .getDependentsOf(filePath)
-      .concat(filePath)
-      .filter(matchesFilePatterns)
-  const initialFileNames = Object.keys(fileVersions)
 
-  initialFileNames.forEach(dependencyManager.addFile)
+  const getDependentFiles = (filePath: string) => {
+    const dependents = dependencyManager
+      .getDependentsOf(filePath)
+      .map(x => x.path)
+      .concat(filePath)
+
+    return dependents
+  }
 
   // Used to defer updates until later
   let currentlyUpdatingSourceFiles = false
@@ -65,10 +68,10 @@ export async function watchSourceFiles(
   let updateSourceFilesTimeout: any
 
   async function performUpdate(files: string[]) {
-    const program = languageService.getProgram() as Program
-    const sourceFilePaths = uniq(chain(getMatchingFiles, files))
-    const sourceFiles = sourceFilePaths
-      .map(x => program.getSourceFile(x))
+    const filePaths = uniq(chain(getDependentFiles, files))
+    program = languageService.getProgram() as Program
+    const sourceFiles = filePaths
+      .map(x => matchesFilePatterns(x) && program.getSourceFile(x))
       .filter(Boolean) as SourceFile[]
 
     // If there are relevant SourceFiles perform side-effects.
@@ -77,18 +80,21 @@ export async function watchSourceFiles(
     }
   }
 
-  async function updateSourceFiles() {
+  async function updateSourceFiles(files: string[] = fileVersionManager.applyChanges()) {
     // If currently updating mark ready to be re-run
     if (currentlyUpdatingSourceFiles) {
       return (readyToBeUpdated = true)
     }
 
+    await logger.info('Performing Update...')
+    await logger.timeStart('Performed Update')
     // Only one instance of this should be running at a time
     currentlyUpdatingSourceFiles = true
 
-    await performUpdate(fileVersionManager.applyChanges())
+    await performUpdate(files)
 
     currentlyUpdatingSourceFiles = false
+    await logger.timeEnd('Performed Update')
 
     // If new updates are ready, run them
     if (readyToBeUpdated) {
@@ -98,41 +104,48 @@ export async function watchSourceFiles(
     }
   }
 
-  function scheduleNextEvent() {
+  function handleEvent(event: nsfw.Event) {
+    logger.debug('File Event', JSON.stringify(event))
+    if (event.action === 3) {
+      const oldPath = join(event.directory, event.oldFile)
+      const path = join(event.directory, event.newFile)
+
+      fileVersionManager.unlinkFile(oldPath)
+      dependencyManager.unlinkFile(oldPath)
+      dependencyManager.updateFile(path)
+      fileVersionManager.updateFile(path)
+
+      return
+    }
+
+    const path = join(event.directory, event.file)
+
+    if (event.action === 0) {
+      fileVersionManager.addFile(path)
+      return dependencyManager.addFile(path)
+    }
+
+    if (event.action === 2) {
+      fileVersionManager.updateFile(path)
+      return dependencyManager.updateFile(path)
+    }
+
+    if (event.action === 1) {
+      fileVersionManager.unlinkFile(path)
+      return dependencyManager.unlinkFile(path)
+    }
+  }
+
+  async function scheduleNextEvent() {
+    await logger.debug('Scheduling next event')
     clearTimeout(updateSourceFilesTimeout)
     updateSourceFilesTimeout = setTimeout(updateSourceFiles, debounce)
   }
 
-  performUpdate(chain(getMatchingFiles, initialFileNames))
-
   const watcher = await nsfw(
     directory,
     (events: nsfw.Event[]) => {
-      for (const event of events) {
-        if (event.file !== 'folder') {
-          const path = join(event.directory, event.file)
-
-          if (event.action === 0) {
-            dependencyManager.addFile(path)
-          }
-
-          if (event.action === 2) {
-            dependencyManager.updateFile(path)
-          }
-
-          if (event.action === 1) {
-            dependencyManager.unlinkFile(path)
-          }
-
-          if (event.action === 3) {
-            const oldPath = join(event.directory, event.oldFile)
-
-            dependencyManager.unlinkFile(oldPath)
-            dependencyManager.updateFile(path)
-          }
-        }
-      }
-
+      events.forEach(handleEvent)
       scheduleNextEvent()
     },
     {
@@ -140,14 +153,28 @@ export async function watchSourceFiles(
     },
   )
 
-  watcher.start()
+  const start = async () => {
+    await logger.debug('Starting File Watcher...')
 
+    watcher.start()
+
+    fileVersionManager.files().forEach(file =>
+      handleEvent({
+        action: 0,
+        file: basename(makeAbsolute(directory, file)),
+        directory: dirname(makeAbsolute(directory, file)),
+      }),
+    )
+
+    scheduleNextEvent()
+  }
   const dispose = () => {
     clearTimeout(updateSourceFilesTimeout)
     watcher.stop()
   }
 
   return {
+    start,
     dispose,
   }
 }

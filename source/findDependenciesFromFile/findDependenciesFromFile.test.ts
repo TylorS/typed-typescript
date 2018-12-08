@@ -2,6 +2,8 @@ import { describe, given, it } from '@typed/test'
 import { join } from 'path'
 import { setupFixtureTestEnvironment } from '../../test-helpers/setupFixtureTestEnvironment'
 import { DependencyTree } from '../types'
+import { createDependencyCache } from './DependencyCache'
+import { dependencyCacheTreeToDependencyTree } from './dependencyCacheTreeToDependencyTree'
 import { findDependenciesFromFile } from './findDependenciesFromFile'
 
 const testHelpers = join(__dirname, '../../test-helpers')
@@ -11,7 +13,10 @@ export const findSourceFileDependenciesTest = describe(`findDependenciesFromSour
     it(`returns its Dependencies`, ({ equal }) => {
       const fixtureFilePath = join(testHelpers, 'fixtures/modules/foobar.ts')
       const { program } = setupFixtureTestEnvironment(__dirname, fixtureFilePath)
-      const dependencies = findDependenciesFromFile(fixtureFilePath, program.getCompilerOptions())
+      const dependencyCache = createDependencyCache({ [fixtureFilePath]: { version: 1 } })
+
+      findDependenciesFromFile(fixtureFilePath, dependencyCache, program.getCompilerOptions())
+
       const expected: DependencyTree = {
         type: 'local',
         path: fixtureFilePath,
@@ -40,7 +45,12 @@ export const findSourceFileDependenciesTest = describe(`findDependenciesFromSour
         ],
       }
 
-      equal(expected, dependencies)
+      const actual = dependencyCacheTreeToDependencyTree(
+        fixtureFilePath,
+        dependencyCache.dependencyTree,
+      )
+
+      equal(expected, actual)
     }),
   ]),
 
@@ -48,7 +58,9 @@ export const findSourceFileDependenciesTest = describe(`findDependenciesFromSour
     it(`returns it's dependencies`, ({ equal }) => {
       const fixtureFilePath = join(testHelpers, 'fixtures/modules/require.ts')
       const { program } = setupFixtureTestEnvironment(__dirname, fixtureFilePath)
-      const dependencies = findDependenciesFromFile(fixtureFilePath, program.getCompilerOptions())
+      const dependencyCache = createDependencyCache({ [fixtureFilePath]: { version: 1 } })
+
+      findDependenciesFromFile(fixtureFilePath, dependencyCache, program.getCompilerOptions())
 
       const expected: DependencyTree = {
         type: 'local',
@@ -62,7 +74,12 @@ export const findSourceFileDependenciesTest = describe(`findDependenciesFromSour
         ],
       }
 
-      equal(expected, dependencies)
+      const actual = dependencyCacheTreeToDependencyTree(
+        fixtureFilePath,
+        dependencyCache.dependencyTree,
+      )
+
+      equal(expected, actual)
     }),
   ]),
 
@@ -73,7 +90,9 @@ export const findSourceFileDependenciesTest = describe(`findDependenciesFromSour
         join(testHelpers, 'fixtures/modules/'),
         fixtureFilePath,
       )
-      const dependencies = findDependenciesFromFile(fixtureFilePath, program.getCompilerOptions())
+      const dependencyCache = createDependencyCache({ [fixtureFilePath]: { version: 1 } })
+
+      findDependenciesFromFile(fixtureFilePath, dependencyCache, program.getCompilerOptions())
 
       const expected: DependencyTree = {
         type: 'local',
@@ -87,7 +106,12 @@ export const findSourceFileDependenciesTest = describe(`findDependenciesFromSour
         ],
       }
 
-      equal(expected, dependencies)
+      const actual = dependencyCacheTreeToDependencyTree(
+        fixtureFilePath,
+        dependencyCache.dependencyTree,
+      )
+
+      equal(expected, actual)
     }),
   ]),
 ])

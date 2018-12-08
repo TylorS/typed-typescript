@@ -7,7 +7,7 @@ export const findFirstChildNode: {
 } = curry2(__findFirstNode)
 
 function __findFirstNode(predicate: (node: Node) => boolean, root: Node): Node | null {
-  const nodesToProcess: Node[] = root.getChildren()
+  const nodesToProcess: Node[] = Array.from(root.getChildren())
 
   while (nodesToProcess.length > 0) {
     const node = nodesToProcess.shift() as Node
@@ -16,7 +16,9 @@ function __findFirstNode(predicate: (node: Node) => boolean, root: Node): Node |
       return node
     }
 
-    nodesToProcess.push(...node.getChildren())
+    for (const child of node.getChildren()) {
+      nodesToProcess.push(child)
+    }
   }
 
   return null

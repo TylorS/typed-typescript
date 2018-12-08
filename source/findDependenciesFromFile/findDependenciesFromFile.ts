@@ -1,79 +1,72 @@
 import { dirname } from 'path'
-import { sync as resolveSync } from 'resolve'
+import { sync } from 'resolve'
 import { CompilerOptions, preProcessFile, sys } from 'typescript'
 import { getFileExtensions } from '../getFileExtensions'
-import { DependencyTree } from '../types'
+import { DependencyCache } from './DependencyCache'
 
-// Only supports top-level imports
-// TODO: support dynamic require()/import()
-// Consideration: Is supporting dynamic imports worth performance penalty?
+type ResolveOptions = {
+  basedir: string
+  extensions: string[]
+}
+
+const createResolveOptionsFactory = (extensions: string[]) => (
+  fileName: string,
+): ResolveOptions => ({
+  basedir: dirname(fileName),
+  extensions,
+})
+
 export function findDependenciesFromFile(
   fileName: string,
+  dependencyCache: DependencyCache,
   compilerOptions: CompilerOptions,
-): DependencyTree {
-  // ensure can resolve node dependencies
-  compilerOptions.allowJs = true
-  const extensions = getFileExtensions(compilerOptions)
+): void {
+  const createResolveOptions = createResolveOptionsFactory(
+    getFileExtensions({ ...compilerOptions, allowJs: true }),
+  )
+  const fileResolveOptions = createResolveOptions(fileName)
+  const fileDependencies = findDependencies(fileName)
+  const filesToProcess = fileDependencies.map(filePath => ({
+    path: findPathToUse(filePath, fileResolveOptions),
+    parent: fileName,
+  }))
 
-  const root: DependencyTree = {
-    type: 'local',
-    path: fileName,
-    dependencies: [],
-  }
-  const sourceFilesToProcess = [{ path: fileName, tree: root }]
-  const filesProcessed: Record<string, DependencyTree> = {}
+  while (filesToProcess.length > 0) {
+    const { path, parent } = filesToProcess.shift() as { path: string; parent: string }
 
-  while (sourceFilesToProcess.length > 0) {
-    const { path, tree } = sourceFilesToProcess.shift() as {
-      path: string
-      tree: DependencyTree
+    if (parent !== fileName && dependencyCache.has(path)) {
+      continue
     }
-    const resolveOptions = { basedir: dirname(path), extensions }
-    const { importedFiles, referencedFiles } = preProcessFile(
-      sys.readFile(path) as string,
-      true,
-      true,
-    )
-    const fileNames = importedFiles.concat(referencedFiles).map(x => x.fileName)
 
-    while (fileNames.length > 0) {
-      const fileName = fileNames.shift() as string
-      const filePath = resolveSync(fileName, resolveOptions)
-      const isExternal = filePath.includes('node_modules')
-      const type = isExternal ? 'external' : 'local'
-      const pathToUse = isExternal ? fileName : filePath
-      const alreadyBeenUsed = tree.dependencies.findIndex(x => x.path === pathToUse) > -1
+    const pathResolveOptions = createResolveOptions(path)
+    const fileDependencies = findDependencies(path)
 
-      if (alreadyBeenUsed) {
-        continue
-      }
+    dependencyCache.addDependencyOf(parent, path)
 
-      const currentTree = filesProcessed[pathToUse]
-
-      if (currentTree) {
-        tree.dependencies.push(currentTree)
-
-        continue
-      }
-
-      const dependency: DependencyTree = {
-        type,
-        path: pathToUse,
-        dependencies: [],
-      }
-
-      filesProcessed[pathToUse] = dependency
-
-      tree.dependencies.push(dependency)
-
-      if (!isExternal) {
-        sourceFilesToProcess.push({
-          path: filePath,
-          tree: dependency,
-        })
-      }
+    if (fileDependencies.length > 0) {
+      filesToProcess.push(
+        ...fileDependencies.map(filePath => ({
+          path: findPathToUse(filePath, pathResolveOptions),
+          parent: path,
+        })),
+      )
     }
   }
+}
 
-  return root
+function findPathToUse(path: string, resolveOptions: ResolveOptions) {
+  const fullPath = sync(path, resolveOptions)
+
+  return fullPath.includes('node_modules') ? path : fullPath
+}
+
+function findDependencies(filePath: string): string[] {
+  const { importedFiles, referencedFiles } = preProcessFile(
+    sys.readFile(filePath) as string,
+    true,
+    true,
+  )
+  const fileDependencies = importedFiles.concat(referencedFiles).map(x => x.fileName)
+
+  return fileDependencies
 }

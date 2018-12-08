@@ -1,143 +1,75 @@
-import { chain, uniq } from '@typed/list'
-import { CompilerOptions } from 'typescript'
+import { CompilerOptions, MapLike } from 'typescript'
 import { makeAbsolute } from '../common/makeAbsolute'
 import { findDependenciesFromFile } from '../findDependenciesFromFile'
+import { createDependencyCache } from '../findDependenciesFromFile/DependencyCache'
+import { dependencyCacheTreeToDependencyTree } from '../findDependenciesFromFile/dependencyCacheTreeToDependencyTree'
 import { flattenDependencies } from '../flattenDependencies'
 import { Dependency } from '../types'
-import { FileVersionManager } from './FileVersionManager'
 
 export interface DependencyManager {
   readonly getDependenciesOf: (filePath: string) => Dependency[]
-  readonly getDependentsOf: (filePath: string) => string[]
+  readonly getDependentsOf: (filePath: string) => Dependency[]
   readonly isDependentOf: (possibleDependent: string, filePath: string) => boolean
   readonly addFile: (filePath: string) => void
   readonly updateFile: (filePath: string) => void
-  readonly unlinkFile: (fileP: string) => void
+  readonly unlinkFile: (filePath: string) => void
 }
 
 export interface CreateDependencyManagerOptions {
   directory: string
   compilerOptions: CompilerOptions
-  fileVersionManager: FileVersionManager
+  fileVersions: MapLike<{ version: number }>
 }
 
 export function createDependencyManager({
   directory,
   compilerOptions,
-  fileVersionManager,
+  fileVersions,
 }: CreateDependencyManagerOptions): DependencyManager {
-  const dependencyMap: Record<string, Dependency[]> = {}
-  const dependentMap: Record<string, string[]> = {}
-  const dependentVersionMap: Record<string, number> = {}
-  const dependentOf: Record<string, string[]> = {}
+  const dependencyCache = createDependencyCache(fileVersions)
   const getPath = (path: string) => makeAbsolute(directory, path)
-
-  function addFile(file: string): void {
-    const path = getPath(file)
-    const dependencies = flattenDependencies(findDependenciesFromFile(path, compilerOptions))
-
-    dependencyMap[path] = dependencies
-
-    for (const dependency of dependencies) {
-      const dependencyPath = dependency.path
-      if (!dependentMap[dependencyPath]) {
-        dependentMap[dependencyPath] = []
-      }
-
-      if (!dependentMap[dependencyPath].includes(path) && path !== dependencyPath) {
-        dependentMap[dependencyPath].push(path)
-      }
-    }
-  }
-
-  function updateFile(file: string) {
-    fileVersionManager.updateFile(file)
-    addFile(file)
-  }
+  const getDependencies = (file: string) =>
+    findDependenciesFromFile(getPath(file), dependencyCache, compilerOptions)
 
   function unlinkFile(file: string) {
     const filePath = getPath(file)
 
-    getDependentsOf(filePath).forEach(updateFile)
-
-    fileVersionManager.unlinkFile(filePath)
-
-    if (dependencyMap[filePath]) {
-      delete dependencyMap[filePath]
-    }
-
-    if (dependentMap[filePath]) {
-      delete dependentMap[filePath]
-    }
-
-    if (dependentOf[filePath]) {
-      delete dependentOf[filePath]
-    }
-
-    if (dependentVersionMap[filePath]) {
-      delete dependentVersionMap[filePath]
-    }
+    getDependentsOf(filePath).forEach(({ path }) => getDependencies(path))
+    dependencyCache.removeFile(filePath)
   }
 
   function isDependentOf(dependency: string, file: string) {
     const filePath = getPath(file)
     const dependencyPath = getPath(dependency)
 
-    return (
-      dependencyMap[filePath] &&
-      dependencyMap[filePath].findIndex(x => x.path === dependencyPath) > -1
-    )
+    return getDependenciesOf(filePath).findIndex(({ path }) => path === dependencyPath) > -1
   }
 
   function getDependenciesOf(file: string) {
-    return dependencyMap[getPath(file)] || []
+    const filePath = getPath(file)
+    const tree = dependencyCache.dependencyTree
+
+    if (!tree[filePath]) {
+      return []
+    }
+
+    return flattenDependencies(dependencyCacheTreeToDependencyTree(filePath, tree))
   }
 
-  function getDependentsOf(file: string): string[] {
+  function getDependentsOf(file: string) {
     const filePath = getPath(file)
-    const fileVersion = fileVersionManager.versionOf(filePath)
-    const dependentVersion = dependentVersionMap[filePath]
+    const tree = dependencyCache.dependentTree
 
-    if (fileVersion === dependentVersion) {
-      return dependentOf[filePath]
+    if (!tree[filePath]) {
+      return []
     }
 
-    const dependents = dependentMap[filePath] || []
-    const filesToProcess = chain(x => dependentMap[x], dependents)
-
-    while (filesToProcess.length > 0) {
-      const path = getPath(filesToProcess.shift() as string)
-      const pathVersion = fileVersionManager.versionOf(path)
-      const pathDependentVersion = dependentVersionMap[filePath]
-
-      if (pathVersion === pathDependentVersion && dependentOf[path]) {
-        dependents.push(path, ...dependentOf[path])
-        continue
-      }
-
-      dependents.push(path)
-
-      const subdependants = dependentMap[path]
-
-      if (subdependants) {
-        filesToProcess.push(...subdependants)
-      }
-    }
-
-    const dependentsOfFile = uniq(dependents)
-
-    dependentVersionMap[filePath] = fileVersion
-    dependentOf[filePath] = dependentsOfFile
-
-    return dependentsOfFile
+    return flattenDependencies(dependencyCacheTreeToDependencyTree(filePath, tree))
   }
 
   return {
-    addFile: (file: string) => {
-      fileVersionManager.addFile(file)
-      addFile(file)
-    },
-    updateFile,
+    addFile: getDependencies,
+    updateFile: getDependencies,
     unlinkFile,
     isDependentOf,
     getDependenciesOf,
