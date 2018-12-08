@@ -17,9 +17,11 @@ export const test = describe(`findChildNodes`, [
 
       const expectedTopLevelNodes = 4
       const expectedChildrenOfFirstNode = 1
+      const expectedChildrenOfFirstChildNode = 1
 
       equal(expectedTopLevelNodes, nodes.length)
       equal(expectedChildrenOfFirstNode, nodes[0].children.length)
+      equal(expectedChildrenOfFirstChildNode, nodes[0].children[0].children.length)
     }),
   ]),
 ])

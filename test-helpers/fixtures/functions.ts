@@ -1,6 +1,8 @@
-export function foo(): () => 'foo' {
-  return function theRealFoo(): 'foo' {
-    return 'foo'
+export function foo(): () => () => 'foo' {
+  return function theRealFoo(): () => 'foo' {
+    return function theGrandFoo(): 'foo' {
+      return 'foo'
+    }
   }
 }
 

@@ -22,7 +22,9 @@ function findAllNodes(predicate: (node: Node) => boolean, nodes: Node[]): Node[]
       nodeTrees.push(node)
     }
 
-    nodesToProcess.push(...node.getChildren())
+    for (const child of node.getChildren()) {
+      nodesToProcess.push(child)
+    }
   }
 
   return nodeTrees
