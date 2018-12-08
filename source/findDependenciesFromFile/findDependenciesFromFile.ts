@@ -1,6 +1,6 @@
 import { dirname } from 'path'
 import { sync } from 'resolve'
-import { CompilerOptions, preProcessFile, sys } from 'typescript'
+import { CompilerOptions, FileReference, preProcessFile, sys } from 'typescript'
 import { getFileExtensions } from '../getFileExtensions'
 import { DependencyCache } from './DependencyCache'
 
@@ -26,15 +26,15 @@ export function findDependenciesFromFile(
   )
   const fileResolveOptions = createResolveOptions(fileName)
   const fileDependencies = findDependencies(fileName)
-  const filesToProcess = fileDependencies.map(filePath => ({
-    path: findPathToUse(filePath, fileResolveOptions),
+  const filesToProcess = fileDependencies.map(dependency => ({
+    path: findPathToUse(dependency.fileName, fileResolveOptions),
     parent: fileName,
   }))
 
   while (filesToProcess.length > 0) {
     const { path, parent } = filesToProcess.shift() as { path: string; parent: string }
 
-    if (parent !== fileName && dependencyCache.has(path)) {
+    if (dependencyCache.has(path)) {
       continue
     }
 
@@ -45,8 +45,8 @@ export function findDependenciesFromFile(
 
     if (fileDependencies.length > 0) {
       filesToProcess.push(
-        ...fileDependencies.map(filePath => ({
-          path: findPathToUse(filePath, pathResolveOptions),
+        ...fileDependencies.map(dependency => ({
+          path: findPathToUse(dependency.fileName, pathResolveOptions),
           parent: path,
         })),
       )
@@ -60,13 +60,12 @@ function findPathToUse(path: string, resolveOptions: ResolveOptions) {
   return fullPath.includes('node_modules') ? path : fullPath
 }
 
-function findDependencies(filePath: string): string[] {
+function findDependencies(filePath: string): FileReference[] {
   const { importedFiles, referencedFiles } = preProcessFile(
     sys.readFile(filePath) as string,
     true,
     true,
   )
-  const fileDependencies = importedFiles.concat(referencedFiles).map(x => x.fileName)
 
-  return fileDependencies
+  return importedFiles.concat(referencedFiles)
 }
