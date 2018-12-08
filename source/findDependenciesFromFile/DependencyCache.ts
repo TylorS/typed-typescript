@@ -23,7 +23,7 @@ export function createDependencyCache(fileVersions: MapLike<{ version: number }>
     const { version: dependencyVersion } = dependencyVersions[filePath] || { version: -1 }
     const { version: fileVersion } = fileVersions[filePath] || { version: -1 }
 
-    return fileVersion !== -1 && dependencyVersion === fileVersion
+    return dependencyVersion !== -1 && dependencyVersion === fileVersion
   }
 
   function addIfNotHas(filePath: string, tree: DependencyCacheTree) {
