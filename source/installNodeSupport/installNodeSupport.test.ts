@@ -1,9 +1,9 @@
 import { describe, given, it } from '@typed/test'
 import { join } from 'path'
 import { setupFixtureTestEnvironment } from '../../test-helpers/setupFixtureTestEnvironment'
-import { installTypeScriptSupport } from './installTypeScriptSupport'
+import { installNodeSupport } from './installNodeSupport'
 
-export const test = describe(`installTypeScriptSupport`, [
+export const test = describe(`installNodeSupport`, [
   given(`cwd and compilerOptions `, [
     it(`installs TypeScript support`, ({ equal, throws }) => {
       const directory = join(__dirname, '../../test-helpers/fixtures/paths')
@@ -12,7 +12,7 @@ export const test = describe(`installTypeScriptSupport`, [
       throws(() => require(file))
 
       const { tsConfig } = setupFixtureTestEnvironment(directory, file)
-      const cleanup = installTypeScriptSupport(tsConfig)
+      const cleanup = installNodeSupport(tsConfig)
 
       const { foobar } = require(file)
 

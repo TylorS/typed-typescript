@@ -1,7 +1,7 @@
 import { curry2 } from '@typed/functions'
 import { Node, SourceFile } from 'typescript'
+import { NodePosition } from '../types'
 import { getPosition } from './getPosition'
-import { NodePosition } from './types'
 
 export const getNodePosition: {
   (sourceFile: SourceFile, node: Node): NodePosition

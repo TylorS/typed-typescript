@@ -4,7 +4,7 @@ import {
   parseConfigFileTextToJson,
   sys,
 } from 'typescript'
-import { diagnosticsToString } from './diagnosticsToString'
+import { diagnosticsToString } from './common/diagnosticsToString'
 import { TsConfig } from './types'
 
 const TS_CONFIG =

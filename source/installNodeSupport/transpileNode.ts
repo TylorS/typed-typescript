@@ -4,8 +4,8 @@ import { basename, extname, join } from 'path'
 import * as sourceMapSupport from 'source-map-support'
 import { directory } from 'tempy'
 import { CompilerOptions, ModuleKind, ScriptTarget, transpileModule } from 'typescript'
-import { diagnosticsToString } from '../diagnosticsToString'
-import { getFileExtensions } from '../getFileExtensions'
+import { diagnosticsToString } from '../common/diagnosticsToString'
+import { getFileExtensions } from '../common/getFileExtensions'
 
 /** CREDITS
  * @url https://github.com/TypeStrong/ts-node/blob/master/src/index.ts

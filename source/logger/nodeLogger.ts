@@ -6,7 +6,12 @@ export function nodeLogger(logLevel: LogLevel): Logger {
   return {
     info: async (...args: string[]) => {
       if (logLevel >= LogLevel.INFO) {
-        console.info(...args)
+        console.log(...args)
+      }
+    },
+    warn: async (...args: string[]) => {
+      if (logLevel >= LogLevel.WARN) {
+        console.warn(...args)
       }
     },
     error: async (...args: string[]) => {

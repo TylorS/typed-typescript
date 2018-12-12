@@ -1,6 +1,6 @@
 import { Diagnostic, Program } from 'typescript'
+import { diagnosticsToString } from '../common/diagnosticsToString'
 import { makeAbsolute } from '../common/makeAbsolute'
-import { diagnosticsToString } from '../diagnosticsToString'
 
 export function typeCheckFiles(cwd: string, files: string[], program: Program): string {
   const absolutePaths = files.map(x => makeAbsolute(cwd, x))

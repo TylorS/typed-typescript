@@ -12,7 +12,7 @@ export type TypeScriptSupportOptions = {
 /**
  * Very side-effectful
  */
-export function installTypeScriptSupport({ configPath, compilerOptions }: TsConfig): () => void {
+export function installNodeSupport({ configPath, compilerOptions }: TsConfig): () => void {
   const { baseUrl, paths } = compilerOptions
 
   const tsPathDispose =
