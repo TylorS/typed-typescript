@@ -3,10 +3,10 @@ import { CompilerOptions } from 'typescript'
 export interface TsConfig {
   compilerOptions: CompilerOptions
   configPath: string
-  extends: string[]
-  files: string[]
-  include: string[]
-  exclude: string[]
+  extends?: string | string[]
+  files?: string[]
+  include?: string[]
+  exclude?: string[]
 }
 
 export interface NodePosition {
